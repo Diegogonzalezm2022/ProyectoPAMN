@@ -58,7 +58,7 @@ fun ProyectoPAMNApp() {
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             Greeting(
-                name = "Android",
+                name = currentDestination.label,
                 modifier = Modifier.padding(innerPadding)
             )
         }
@@ -69,8 +69,9 @@ enum class AppDestinations(
     val label: String,
     val icon: Int,
 ) {
-    HOME("Home", R.drawable.ic_home),
+    HOME("Home", R.drawable.ic_account_box),
     FAVORITES("Favorites", R.drawable.ic_favorite),
+    MY_PRODUCTS("My products", R.drawable.ic_sell),
     PROFILE("Profile", R.drawable.ic_account_box),
 }
 
