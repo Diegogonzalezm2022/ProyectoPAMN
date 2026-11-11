@@ -1,6 +1,8 @@
 package com.ulpgc.proyectopamn
 
 import android.os.Bundle
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
@@ -46,10 +49,10 @@ fun ProyectoPAMNApp() {
                     icon = {
                         Icon(
                             painterResource(it.icon),
-                            contentDescription = it.label
+                            contentDescription = stringResource(it.label)
                         )
                     },
-                    label = { Text(it.label) },
+                    label = { Text(stringResource(it.label)) },
                     selected = it == currentDestination,
                     onClick = { currentDestination = it }
                 )
@@ -58,7 +61,7 @@ fun ProyectoPAMNApp() {
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             Greeting(
-                name = currentDestination.label,
+                name = stringResource(currentDestination.label),
                 modifier = Modifier.padding(innerPadding)
             )
         }
@@ -66,19 +69,19 @@ fun ProyectoPAMNApp() {
 }
 
 enum class AppDestinations(
-    val label: String,
-    val icon: Int,
+    @StringRes val label: Int,
+    @DrawableRes val icon: Int,
 ) {
-    HOME("Home", R.drawable.ic_account_box),
-    FAVORITES("Favorites", R.drawable.ic_favorite),
-    MY_PRODUCTS("My products", R.drawable.ic_sell),
-    PROFILE("Profile", R.drawable.ic_account_box),
+    HOME(R.string.nav_home, R.drawable.ic_home),
+    FAVORITES(R.string.nav_favorites, R.drawable.ic_favorite),
+    MY_PRODUCTS(R.string.nav_my_products, R.drawable.ic_sell),
+    PROFILE(R.string.nav_profile, R.drawable.ic_account_box),
 }
 
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     Text(
-        text = "Hello $name!",
+        text = stringResource(R.string.greeting, name),
         modifier = modifier
     )
 }
