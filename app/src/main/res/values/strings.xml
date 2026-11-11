@@ -8,4 +8,24 @@
     <string name="nav_profile">Profile</string>
 
     <string name="greeting">Hello %1$s!</string>
+
+    <!-- Acceso (login / registro) -->
+    <string name="auth_title_login">Log in</string>
+    <string name="auth_title_register">Create account</string>
+    <string name="auth_name">Name</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_password_hint">At least 6 characters</string>
+    <string name="auth_submit_login">Log in</string>
+    <string name="auth_submit_register">Create account</string>
+    <string name="auth_switch_to_register">Don\'t have an account? Sign up</string>
+    <string name="auth_switch_to_login">Already have an account? Log in</string>
+    <string name="auth_loading">Loading</string>
+
+    <string name="auth_error_empty_name">Enter your name.</string>
+    <string name="auth_error_invalid_email">Enter a valid email, for example ana@mail.com.</string>
+    <string name="auth_error_weak_password">The password must be at least 6 characters long.</string>
+    <string name="auth_error_email_in_use">There is already an account with this email. Log in instead.</string>
+    <string name="auth_error_invalid_credentials">Incorrect email or password.</string>
+    <string name="auth_error_unknown">Something went wrong. Please try again.</string>
 </resources>
