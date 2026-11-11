@@ -23,6 +23,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthScreen
+import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthViewModel
+import com.ulpgc.proyectopamn.config.AppDependencyContainer
 import com.ulpgc.proyectopamn.ui.theme.ProyectoPAMNTheme
 
 class MainActivity : ComponentActivity() {
@@ -31,7 +35,16 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ProyectoPAMNTheme {
-                ProyectoPAMNApp()
+                val authViewModel: AuthViewModel = viewModel(factory = AppDependencyContainer.authViewModelFactory)
+
+                // Sin sesión iniciada se muestra el acceso; con sesión, la app con su footer.
+                if (authViewModel.uiState.loggedUser == null) {
+                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        AuthScreen(authViewModel, Modifier.padding(innerPadding))
+                    }
+                } else {
+                    ProyectoPAMNApp()
+                }
             }
         }
     }
