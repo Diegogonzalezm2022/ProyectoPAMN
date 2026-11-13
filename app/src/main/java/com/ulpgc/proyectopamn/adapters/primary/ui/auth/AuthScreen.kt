@@ -18,6 +18,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -32,11 +33,25 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ulpgc.proyectopamn.R
+import com.ulpgc.proyectopamn.domain.model.User
 import com.ulpgc.proyectopamn.ui.theme.ProyectoPAMNTheme
 
 /** Versión "con ViewModel": la que usa la app. */
 @Composable
-fun AuthScreen(viewModel: AuthViewModel, modifier: Modifier = Modifier) {
+fun AuthScreen(
+    viewModel: AuthViewModel,
+    onLoggedIn: (User) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val loggedUser = viewModel.uiState.loggedUser
+    // Se ejecuta una vez cada vez que aparece un usuario nuevo en el estado.
+    LaunchedEffect(loggedUser) {
+        if (loggedUser != null) {
+            onLoggedIn(loggedUser)
+            viewModel.onLoginHandled()
+        }
+    }
+
     AuthScreen(
         state = viewModel.uiState,
         onNameChange = viewModel::onNameChange,

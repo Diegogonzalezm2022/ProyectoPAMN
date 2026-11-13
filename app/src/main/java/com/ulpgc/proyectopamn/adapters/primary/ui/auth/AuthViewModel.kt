@@ -48,10 +48,16 @@ class AuthViewModel(
                 login.execute(state.email, state.password)
             }
             uiState = result.fold(
-                onSuccess = { user -> uiState.copy(isLoading = false, password = "", loggedUser = user) },
+                // Formulario limpio: si luego cierra sesión, vuelve a un login vacío.
+                onSuccess = { user -> AuthUiState(loggedUser = user) },
                 onFailure = { error -> uiState.copy(isLoading = false, errorMessage = error.toMessage()) },
             )
         }
+    }
+
+    /** La pantalla ya ha avisado del login: se borra para no avisar dos veces. */
+    fun onLoginHandled() {
+        uiState = uiState.copy(loggedUser = null)
     }
 
     // Traducir errores del dominio a textos es cosa de la UI, no del dominio.
