@@ -4,22 +4,24 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthScreen
+import com.ulpgc.proyectopamn.adapters.primary.ui.user.UserProfileScreen
+import com.ulpgc.proyectopamn.config.AppDependencyContainer
+import com.ulpgc.proyectopamn.domain.model.UserProfile
 import com.ulpgc.proyectopamn.ui.theme.ProyectoPAMNTheme
 
 class MainActivity : ComponentActivity() {
@@ -28,16 +30,46 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ProyectoPAMNTheme {
-                ProyectoPAMNApp()
+                MainAppHost()
             }
         }
     }
 }
 
-@PreviewScreenSizes
 @Composable
-fun ProyectoPAMNApp() {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+fun MainAppHost() {
+    val context = LocalContext.current
+    val authInputPort = remember { AppDependencyContainer.getAuthInputPort(context) }
+
+    var currentUser by remember { mutableStateOf(authInputPort.getCurrentUser()) }
+
+    if (currentUser == null) {
+        AuthScreen(
+            authInputPort = authInputPort,
+            onAuthSuccess = { user ->
+                currentUser = user
+            }
+        )
+    } else {
+        ProyectoPAMNApp(
+            currentUser = currentUser!!,
+            onLogout = { currentUser = null },
+            onAccountDeleted = { currentUser = null },
+            onProfileUpdated = { updatedUser -> currentUser = updatedUser }
+        )
+    }
+}
+
+@Composable
+fun ProyectoPAMNApp(
+    currentUser: UserProfile,
+    onLogout: () -> Unit,
+    onAccountDeleted: () -> Unit,
+    onProfileUpdated: (UserProfile) -> Unit
+) {
+    val context = LocalContext.current
+    val authInputPort = remember { AppDependencyContainer.getAuthInputPort(context) }
+    var currentDestination by remember { mutableStateOf(AppDestinations.HOME) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -57,10 +89,23 @@ fun ProyectoPAMNApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting(
-                name = "Android",
-                modifier = Modifier.padding(innerPadding)
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                when (currentDestination) {
+                    AppDestinations.HOME -> HomeScreen(username = currentUser.username)
+                    AppDestinations.FAVORITES -> FavoritesScreen()
+                    AppDestinations.PROFILE -> UserProfileScreen(
+                        userProfile = currentUser,
+                        authInputPort = authInputPort,
+                        onLogout = onLogout,
+                        onAccountDeleted = onAccountDeleted,
+                        onProfileUpdated = onProfileUpdated
+                    )
+                }
+            }
         }
     }
 }
@@ -69,23 +114,41 @@ enum class AppDestinations(
     val label: String,
     val icon: Int,
 ) {
-    HOME("Home", R.drawable.ic_home),
-    FAVORITES("Favorites", R.drawable.ic_favorite),
-    PROFILE("Profile", R.drawable.ic_account_box),
+    HOME("Inicio", R.drawable.ic_home),
+    FAVORITES("Favoritos", R.drawable.ic_favorite),
+    PROFILE("Usuario", R.drawable.ic_account_box),
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
+fun HomeScreen(username: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "¡Bienvenido, $username!",
+            style = MaterialTheme.typography.headlineSmall
+        )
+    }
+}
+
+@Composable
+fun FavoritesScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Pestaña de Favoritos",
+            style = MaterialTheme.typography.headlineSmall
+        )
+    }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
+fun MainPreview() {
     ProyectoPAMNTheme {
-        Greeting("Android")
+        HomeScreen(username = "Usuario")
     }
 }
