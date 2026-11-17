@@ -1,8 +1,9 @@
 package com.ulpgc.proyectopamn.domain.ports.input
 
-import com.ulpgc.proyectopamn.domain.model.User
+import com.ulpgc.proyectopamn.domain.model.AuthResult
+import com.ulpgc.proyectopamn.domain.model.UserProfile
 
-/** Caso de uso: crear una cuenta nueva y dejar la sesión iniciada. */
+/** Puerto de Entrada para Registro de Cuenta */
 interface RegisterInputPort {
-    suspend fun execute(name: String, email: String, password: String): Result<User>
+    suspend fun execute(user: UserProfile, password: String): AuthResult<UserProfile>
 }

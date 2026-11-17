@@ -8,156 +8,242 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.ulpgc.proyectopamn.R
-import com.ulpgc.proyectopamn.ui.theme.ProyectoPAMNTheme
+import com.ulpgc.proyectopamn.domain.model.AuthResult
+import com.ulpgc.proyectopamn.domain.model.UserProfile
+import com.ulpgc.proyectopamn.domain.ports.input.AuthInputPort
+import kotlinx.coroutines.launch
 
-/** Versión "con ViewModel": la que usa la app. */
-@Composable
-fun AuthScreen(viewModel: AuthViewModel, modifier: Modifier = Modifier) {
-    AuthScreen(
-        state = viewModel.uiState,
-        onNameChange = viewModel::onNameChange,
-        onEmailChange = viewModel::onEmailChange,
-        onPasswordChange = viewModel::onPasswordChange,
-        onSubmit = viewModel::onSubmit,
-        onToggleMode = viewModel::onToggleMode,
-        modifier = modifier,
-    )
-}
-
-/** Versión "sin estado": solo pinta lo que recibe. Se puede previsualizar sin ViewModel. */
+/**
+ * Pantalla de Autenticación (Login y Registro) - Adaptador Primario UI
+ *
+ * Cumple con los criterios de accesibilidad WCAG 2.1 y Material Design 3.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuthScreen(
-    state: AuthUiState,
-    onNameChange: (String) -> Unit,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-    onToggleMode: () -> Unit,
-    modifier: Modifier = Modifier,
+    authInputPort: AuthInputPort,
+    onAuthSuccess: (UserProfile) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val hasError = state.errorMessage != null
+    var isRegisterMode by remember { mutableStateOf(false) }
 
-    Column(
+    // Campos de entrada
+    var identifier by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var photoUrl by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val scope = rememberCoroutineScope()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(if (isRegisterMode) "Registro de Usuario" else "Iniciar Sesión") }
+            )
+        },
         modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-    ) {
-        Text(
-            text = stringResource(if (state.isRegisterMode) R.string.auth_title_register else R.string.auth_title_login),
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.semantics { heading() },
-        )
-
-        if (state.isRegisterMode) {
-            OutlinedTextField(
-                value = state.name,
-                onValueChange = onNameChange,
-                label = { Text(stringResource(R.string.auth_name)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-
-        OutlinedTextField(
-            value = state.email,
-            onValueChange = onEmailChange,
-            label = { Text(stringResource(R.string.auth_email)) },
-            singleLine = true,
-            isError = hasError,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        OutlinedTextField(
-            value = state.password,
-            onValueChange = onPasswordChange,
-            label = { Text(stringResource(R.string.auth_password)) },
-            supportingText = if (state.isRegisterMode) {
-                { Text(stringResource(R.string.auth_password_hint)) }
-            } else null,
-            singleLine = true,
-            isError = hasError,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { onSubmit() }),
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        if (state.errorMessage != null) {
-            // liveRegion: TalkBack lee el error en cuanto aparece, sin tener que buscarlo.
-            Text(
-                text = stringResource(state.errorMessage),
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-            )
-        }
-
-        Button(
-            onClick = onSubmit,
-            enabled = !state.isLoading,
+    ) { innerPadding ->
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp),
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            if (state.isLoading) {
-                val loading = stringResource(R.string.auth_loading)
-                CircularProgressIndicator(
-                    strokeWidth = 2.dp,
+            Text(
+                text = if (isRegisterMode) "Crea una nueva cuenta" else "Accede con tu Usuario, Email o Teléfono",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+
+            errorMessage?.let { error ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                     modifier = Modifier
-                        .size(20.dp)
-                        .semantics { contentDescription = loading },
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                        .semantics { contentDescription = "Mensaje de error: $error" }
+                ) {
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+
+            if (!isRegisterMode) {
+                // Formulario de Inicio de Sesión
+                OutlinedTextField(
+                    value = identifier,
+                    onValueChange = { identifier = it },
+                    label = { Text("Usuario, Email o Teléfono") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                 )
             } else {
-                Text(stringResource(if (state.isRegisterMode) R.string.auth_submit_register else R.string.auth_submit_login))
+                // Formulario de Registro
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("Nombre de usuario (*)") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                )
+
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Correo Electrónico") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                )
+
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = { Text("Número de Teléfono") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                )
+
+                OutlinedTextField(
+                    value = photoUrl,
+                    onValueChange = { photoUrl = it },
+                    label = { Text("URL Foto de Perfil (Opcional)") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                )
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Descripción (Opcional)") },
+                    maxLines = 3,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                )
+            }
+
+            // Contraseña (para ambos modos)
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Contraseña") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+            )
+
+            // Botón de Acción Principal
+            Button(
+                onClick = {
+                    errorMessage = null
+                    isLoading = true
+                    scope.launch {
+                        val result = if (isRegisterMode) {
+                            val newProfile = UserProfile(
+                                username = username,
+                                email = email,
+                                phone = phone,
+                                photoUrl = photoUrl,
+                                description = description
+                            )
+                            authInputPort.register(newProfile, password)
+                        } else {
+                            authInputPort.login(identifier, password)
+                        }
+
+                        isLoading = false
+                        when (result) {
+                            is AuthResult.Success -> onAuthSuccess(result.data)
+                            is AuthResult.Error -> errorMessage = result.message
+                        }
+                    }
+                },
+                enabled = !isLoading,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    Text(if (isRegisterMode) "Crear Cuenta" else "Iniciar Sesión")
+                }
+            }
+
+            // Conmutador entre Login y Registro
+            TextButton(
+                onClick = {
+                    isRegisterMode = !isRegisterMode
+                    errorMessage = null
+                },
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .heightIn(min = 48.dp)
+            ) {
+                Text(
+                    text = if (isRegisterMode) "¿Ya tienes cuenta? Inicia Sesión" else "¿No tienes cuenta? Regístrate aquí"
+                )
             }
         }
-
-        TextButton(
-            onClick = onToggleMode,
-            enabled = !state.isLoading,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp),
-        ) {
-            Text(stringResource(if (state.isRegisterMode) R.string.auth_switch_to_login else R.string.auth_switch_to_register))
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun AuthScreenErrorPreview() {
-    ProyectoPAMNTheme {
-        AuthScreen(
-            state = AuthUiState(email = "ana@", errorMessage = R.string.auth_error_invalid_email),
-            onNameChange = {}, onEmailChange = {}, onPasswordChange = {}, onSubmit = {}, onToggleMode = {},
-        )
     }
 }

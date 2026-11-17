@@ -1,50 +1,58 @@
 package com.ulpgc.proyectopamn.config
 
+import android.content.Context
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.ulpgc.proyectopamn.adapters.primary.ui.SampleUiAdapter
 import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthViewModel
-import com.ulpgc.proyectopamn.adapters.secondary.persistence.SamplePersistenceAdapter
+import com.ulpgc.proyectopamn.adapters.secondary.network.firebase.FirebaseAuthAdapter
 import com.ulpgc.proyectopamn.adapters.secondary.persistence.mock.InMemoryAuthGateway
+import com.ulpgc.proyectopamn.application.usecase.AuthUseCase
 import com.ulpgc.proyectopamn.application.usecase.LoginUseCase
 import com.ulpgc.proyectopamn.application.usecase.RegisterUseCase
-import com.ulpgc.proyectopamn.application.usecase.SampleUseCase
-import com.ulpgc.proyectopamn.domain.ports.output.AuthGateway
+import com.ulpgc.proyectopamn.domain.ports.input.AuthInputPort
+import com.ulpgc.proyectopamn.domain.ports.output.AuthOutputPort
 
 /**
  * Punto de Ensamblado / Contenedor de Dependencias (Composition Root)
  *
- * Instancia y enlaza los adaptadores concretos con los casos de uso y puertos.
+ * Instancia y conecta los adaptadores concretos con los casos de uso y puertos.
  */
 object AppDependencyContainer {
 
-    val samplePersistenceAdapter by lazy {
-        SamplePersistenceAdapter()
+    private var authOutputPortInstance: AuthOutputPort? = null
+    private var authInputPortInstance: AuthInputPort? = null
+
+    /**
+     * Obtiene el puerto de entrada para la autenticación y gestión de usuarios.
+     * Utiliza [FirebaseAuthAdapter] (con respaldo en memoria interno si no hay google-services.json).
+     */
+    fun getAuthInputPort(context: Context, useMock: Boolean = false): AuthInputPort {
+        val currentInstance = authInputPortInstance
+        if (currentInstance != null) return currentInstance
+
+        val outputPort = authOutputPortInstance ?: if (useMock) {
+            InMemoryAuthGateway()
+        } else {
+            FirebaseAuthAdapter(context.applicationContext)
+        }.also {
+            authOutputPortInstance = it
+        }
+
+        val newUseCase = AuthUseCase(outputPort)
+        authInputPortInstance = newUseCase
+        return newUseCase
     }
 
-    val sampleUseCase by lazy {
-        SampleUseCase(samplePersistenceAdapter)
-    }
-
-    val sampleUiAdapter by lazy {
-        SampleUiAdapter(sampleUseCase)
-    }
-
-    // --- Autenticación ---
-    // Para pasar a Firebase solo habrá que cambiar esta línea por FirebaseAuthGateway().
-    private val authGateway: AuthGateway by lazy {
-        InMemoryAuthGateway()
-    }
-
-    private val loginUseCase by lazy {
-        LoginUseCase(authGateway)
-    }
-
-    private val registerUseCase by lazy {
-        RegisterUseCase(authGateway)
-    }
-
-    val authViewModelFactory = viewModelFactory {
-        initializer { AuthViewModel(loginUseCase, registerUseCase) }
+    /**
+     * Fábrica para AuthViewModel manteniendo compatibilidad.
+     */
+    fun getAuthViewModelFactory(context: Context) = viewModelFactory {
+        initializer {
+            val authPort = getAuthInputPort(context)
+            AuthViewModel(
+                login = LoginUseCase(authPort),
+                register = RegisterUseCase(authPort)
+            )
+        }
     }
 }

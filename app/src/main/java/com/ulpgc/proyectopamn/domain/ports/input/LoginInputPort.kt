@@ -1,8 +1,9 @@
 package com.ulpgc.proyectopamn.domain.ports.input
 
-import com.ulpgc.proyectopamn.domain.model.User
+import com.ulpgc.proyectopamn.domain.model.AuthResult
+import com.ulpgc.proyectopamn.domain.model.UserProfile
 
-/** Caso de uso: iniciar sesión con email y contraseña. */
+/** Puerto de Entrada para Inicio de Sesión */
 interface LoginInputPort {
-    suspend fun execute(email: String, password: String): Result<User>
+    suspend fun execute(identifier: String, password: String): AuthResult<UserProfile>
 }
