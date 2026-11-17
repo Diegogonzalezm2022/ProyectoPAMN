@@ -1,6 +1,8 @@
 package com.ulpgc.proyectopamn
 
 import android.os.Bundle
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,7 +19,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthScreen
+import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthViewModel
 import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthScreen
 import com.ulpgc.proyectopamn.adapters.primary.ui.user.UserProfileScreen
 import com.ulpgc.proyectopamn.config.AppDependencyContainer
@@ -78,10 +86,10 @@ fun ProyectoPAMNApp(
                     icon = {
                         Icon(
                             painterResource(it.icon),
-                            contentDescription = it.label
+                            contentDescription = stringResource(it.label)
                         )
                     },
-                    label = { Text(it.label) },
+                    label = { Text(stringResource(it.label)) },
                     selected = it == currentDestination,
                     onClick = { currentDestination = it }
                 )
@@ -111,12 +119,13 @@ fun ProyectoPAMNApp(
 }
 
 enum class AppDestinations(
-    val label: String,
-    val icon: Int,
+    @StringRes val label: Int,
+    @DrawableRes val icon: Int,
 ) {
-    HOME("Inicio", R.drawable.ic_home),
-    FAVORITES("Favoritos", R.drawable.ic_favorite),
-    PROFILE("Usuario", R.drawable.ic_account_box),
+    HOME(R.string.nav_home, R.drawable.ic_home),
+    FAVORITES(R.string.nav_favorites, R.drawable.ic_favorite),
+    MY_PRODUCTS(R.string.nav_my_products, R.drawable.ic_sell),
+    PROFILE(R.string.nav_profile, R.drawable.ic_account_box),
 }
 
 @Composable
