@@ -1,60 +1,88 @@
 package com.ulpgc.proyectopamn.adapters.secondary.persistence.mock
 
-import com.ulpgc.proyectopamn.domain.model.AuthError
-import com.ulpgc.proyectopamn.domain.model.User
-import com.ulpgc.proyectopamn.domain.ports.output.AuthGateway
-import java.util.UUID
+import com.ulpgc.proyectopamn.domain.model.AuthResult
+import com.ulpgc.proyectopamn.domain.model.UserProfile
+import com.ulpgc.proyectopamn.domain.ports.output.AuthOutputPort
 
 /**
- * Autenticación falsa que guarda las cuentas en memoria.
+ * Adaptador Secundario Falso (Mock en Memoria).
  *
- * Sirve para desarrollar y probar sin Firebase. Al cerrar la app se pierde todo,
- * por eso trae una cuenta de prueba ya creada.
+ * Implementa [AuthOutputPort] permitiendo probar la app localmente sin Firebase.
  */
-class InMemoryAuthGateway : AuthGateway {
+class InMemoryAuthGateway : AuthOutputPort {
 
-    // La contraseña solo vive aquí dentro: el resto de la app trabaja con User.
-    private data class Account(val user: User, val password: String)
+    private data class Account(val userProfile: UserProfile, val password: String)
 
-    // Clave = email en minúsculas, para que "Ana@x.com" y "ana@x.com" sean la misma cuenta.
     private val accounts = mutableMapOf<String, Account>()
-    private var loggedUser: User? = null
+    private var loggedUser: UserProfile? = null
 
     init {
-        val demo = User(id = "demo", name = "Demo", email = "demo@pamn.test")
-        accounts[demo.email] = Account(demo, password = "123456")
+        val demo = UserProfile(
+            id = "demo",
+            username = "DemoUser",
+            email = "demo@pamn.test",
+            phone = "+34600000000",
+            description = "Cuenta de prueba en memoria"
+        )
+        accounts[demo.email.lowercase()] = Account(demo, password = "123456")
     }
 
-    override suspend fun register(name: String, email: String, password: String): Result<User> {
-        val key = email.lowercase()
-        if (key in accounts) return Result.failure(AuthError.EmailAlreadyInUse)
+    override fun getCurrentUser(): UserProfile? = loggedUser
 
-        val user = User(id = UUID.randomUUID().toString(), name = name, email = email)
-        accounts[key] = Account(user, password)
-        loggedUser = user
-        return Result.success(user)
-    }
-
-    override suspend fun login(email: String, password: String): Result<User> {
+    override suspend fun loginWithEmail(email: String, password: String): AuthResult<UserProfile> {
         val account = accounts[email.lowercase()]
-        // Mismo error si no existe el email o si la contraseña falla: no damos pistas a un atacante.
-        if (account == null || account.password != password) {
-            return Result.failure(AuthError.InvalidCredentials)
+            ?: return AuthResult.Error("Credenciales incorrectas")
+
+        if (account.password != password) {
+            return AuthResult.Error("Contraseña incorrecta")
         }
-        loggedUser = account.user
-        return Result.success(account.user)
+
+        loggedUser = account.userProfile
+        return AuthResult.Success(account.userProfile)
+    }
+
+    override suspend fun findUserByUsername(username: String): UserProfile? {
+        return accounts.values.find { it.userProfile.username.equals(username, ignoreCase = true) }?.userProfile
+    }
+
+    override suspend fun findUserByPhone(phone: String): UserProfile? {
+        return accounts.values.find { it.userProfile.phone == phone }?.userProfile
+    }
+
+    override suspend fun register(user: UserProfile, password: String): AuthResult<UserProfile> {
+        val emailKey = user.email.lowercase()
+        if (emailKey.isNotBlank() && emailKey in accounts) {
+            return AuthResult.Error("El correo electrónico ya está registrado")
+        }
+
+        val newId = if (user.id.isBlank()) "local_" + System.currentTimeMillis() else user.id
+        val newProfile = user.copy(id = newId)
+
+        accounts[emailKey.ifBlank { newId }] = Account(newProfile, password)
+        loggedUser = newProfile
+        return AuthResult.Success(newProfile)
+    }
+
+    override suspend fun updateProfile(user: UserProfile): AuthResult<UserProfile> {
+        val current = loggedUser ?: return AuthResult.Error("No hay sesión activa")
+        val oldAccount = accounts.values.find { it.userProfile.id == current.id }
+            ?: return AuthResult.Error("Usuario no encontrado")
+
+        val updatedAccount = Account(user, oldAccount.password)
+        accounts.remove(oldAccount.userProfile.email.lowercase())
+        accounts[user.email.lowercase().ifBlank { user.id }] = updatedAccount
+        loggedUser = user
+        return AuthResult.Success(user)
     }
 
     override suspend fun logout() {
         loggedUser = null
     }
 
-    override fun currentUser(): User? = loggedUser
-
-    override suspend fun deleteAccount(): Result<Unit> {
-        val user = loggedUser ?: return Result.failure(AuthError.NotLoggedIn)
-        accounts.remove(user.email.lowercase())
+    override suspend fun deleteAccount(): AuthResult<Unit> {
+        val current = loggedUser ?: return AuthResult.Error("No hay sesión activa")
+        accounts.values.removeIf { it.userProfile.id == current.id }
         loggedUser = null
-        return Result.success(Unit)
+        return AuthResult.Success(Unit)
     }
 }
