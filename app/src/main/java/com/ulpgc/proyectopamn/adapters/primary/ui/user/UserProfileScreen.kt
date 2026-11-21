@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
@@ -53,6 +54,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.ulpgc.proyectopamn.adapters.primary.ui.auth.rememberImageBitmapFromUri
 import com.ulpgc.proyectopamn.domain.model.AuthResult
@@ -81,7 +84,7 @@ fun UserProfileScreen(
     var isEditing by remember { mutableStateOf(false) }
 
     var username by remember(userProfile) { mutableStateOf(userProfile.username) }
-    var email by remember(userProfile) { mutableStateOf(userProfile.email) }
+    val email = userProfile.email
     var phone by remember(userProfile) { mutableStateOf(userProfile.phone) }
     var photoUrl by remember(userProfile) { mutableStateOf(userProfile.photoUrl) }
     var description by remember(userProfile) { mutableStateOf(userProfile.description) }
@@ -89,6 +92,8 @@ fun UserProfileScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var deletePassword by remember { mutableStateOf("") }
+    var deleteError by remember { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
 
@@ -249,11 +254,15 @@ fun UserProfileScreen(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
                 )
 
+                // El email se ve pero no se puede editar (es con lo que se inicia sesión).
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = {},
                     label = { Text("Email") },
+                    supportingText = { Text("El email no se puede cambiar") },
                     singleLine = true,
+                    readOnly = true,
+                    enabled = false,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
                 )
 
@@ -351,31 +360,61 @@ fun UserProfileScreen(
 
     // Diálogo de Confirmación para Borrar Cuenta
     if (showDeleteConfirmDialog) {
+        val closeDialog = {
+            showDeleteConfirmDialog = false
+            deletePassword = ""
+            deleteError = null
+        }
         AlertDialog(
-            onDismissRequest = { showDeleteConfirmDialog = false },
+            onDismissRequest = { if (!isLoading) closeDialog() },
             title = { Text("Borrar Cuenta") },
-            text = { Text("¿Estás seguro de que deseas eliminar tu cuenta? Esta acción no se puede deshacer.") },
+            text = {
+                Column {
+                    Text("¿Estás seguro de que deseas eliminar tu cuenta? Esta acción no se puede deshacer.")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    // Pedir la contraseña confirma que es el dueño y permite a Firebase borrar la cuenta.
+                    OutlinedTextField(
+                        value = deletePassword,
+                        onValueChange = {
+                            deletePassword = it
+                            deleteError = null
+                        },
+                        label = { Text("Contraseña") },
+                        singleLine = true,
+                        isError = deleteError != null,
+                        supportingText = deleteError?.let { error -> { Text(error) } },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        enabled = !isLoading,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        showDeleteConfirmDialog = false
                         isLoading = true
                         scope.launch {
-                            val result = authInputPort.deleteAccount()
+                            val result = authInputPort.deleteAccount(deletePassword)
                             isLoading = false
                             when (result) {
-                                is AuthResult.Success -> onAccountDeleted()
-                                is AuthResult.Error -> errorMessage = result.message
+                                is AuthResult.Success -> {
+                                    closeDialog()
+                                    onAccountDeleted()
+                                }
+                                // El diálogo sigue abierto para poder corregir la contraseña.
+                                is AuthResult.Error -> deleteError = result.message
                             }
                         }
                     },
+                    enabled = deletePassword.isNotEmpty() && !isLoading,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("Eliminar")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                TextButton(onClick = closeDialog, enabled = !isLoading) {
                     Text("Cancelar")
                 }
             }

@@ -9,12 +9,14 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthScreen
 import com.ulpgc.proyectopamn.adapters.primary.ui.user.UserProfileScreen
@@ -48,9 +52,22 @@ fun MainAppHost() {
     val context = LocalContext.current
     val authInputPort = remember { AppDependencyContainer.getAuthInputPort(context) }
 
-    var currentUser by remember { mutableStateOf(authInputPort.getCurrentUser()) }
+    var currentUser by remember { mutableStateOf<UserProfile?>(null) }
+    var isCheckingSession by remember { mutableStateOf(true) }
 
-    if (currentUser == null) {
+    // Al abrir la app se pregunta (una vez) si había una sesión guardada.
+    LaunchedEffect(Unit) {
+        currentUser = authInputPort.getCurrentUser()
+        isCheckingSession = false
+    }
+
+    if (isCheckingSession) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(
+                modifier = Modifier.semantics { contentDescription = "Cargando" }
+            )
+        }
+    } else if (currentUser == null) {
         AuthScreen(
             authInputPort = authInputPort,
             onAuthSuccess = { user ->

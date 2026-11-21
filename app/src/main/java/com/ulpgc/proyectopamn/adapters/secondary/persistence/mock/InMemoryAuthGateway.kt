@@ -27,7 +27,7 @@ class InMemoryAuthGateway : AuthOutputPort {
         accounts[demo.email.lowercase()] = Account(demo, password = "123456")
     }
 
-    override fun getCurrentUser(): UserProfile? = loggedUser
+    override suspend fun getCurrentUser(): UserProfile? = loggedUser
 
     override suspend fun loginWithEmail(email: String, password: String): AuthResult<UserProfile> {
         val account = accounts[email.lowercase()]
@@ -79,8 +79,12 @@ class InMemoryAuthGateway : AuthOutputPort {
         loggedUser = null
     }
 
-    override suspend fun deleteAccount(): AuthResult<Unit> {
+    override suspend fun deleteAccount(password: String): AuthResult<Unit> {
         val current = loggedUser ?: return AuthResult.Error("No hay sesión activa")
+        val account = accounts.values.find { it.userProfile.id == current.id }
+        if (account == null || account.password != password) {
+            return AuthResult.Error("Contraseña incorrecta")
+        }
         accounts.values.removeIf { it.userProfile.id == current.id }
         loggedUser = null
         return AuthResult.Success(Unit)
