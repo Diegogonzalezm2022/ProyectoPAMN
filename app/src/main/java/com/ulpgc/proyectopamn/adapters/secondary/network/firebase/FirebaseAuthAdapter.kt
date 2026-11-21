@@ -1,10 +1,12 @@
 package com.ulpgc.proyectopamn.adapters.secondary.network.firebase
 
 import android.content.Context
+import android.net.Uri
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import com.ulpgc.proyectopamn.domain.model.AuthResult
 import com.ulpgc.proyectopamn.domain.model.UserProfile
 import com.ulpgc.proyectopamn.domain.ports.output.AuthOutputPort
@@ -15,9 +17,8 @@ import kotlin.coroutines.resumeWithException
 /**
  * Adaptador Secundario (Driven Adapter) para Autenticación e Infraestructura con Firebase.
  *
- * Implementa [AuthOutputPort] utilizando Firebase Auth y Firestore.
- * Incluye un repositorio en memoria de respaldo si Firebase no está configurado aún
- * en el entorno del dispositivo.
+ * Implementa [AuthOutputPort] utilizando Firebase Auth, Firestore y Firebase Storage.
+ * Sube automáticamente las imágenes seleccionadas de la galería a la nube de Firebase Storage.
  */
 class FirebaseAuthAdapter(
     private val context: Context
@@ -39,6 +40,9 @@ class FirebaseAuthAdapter(
 
     private val firestore: FirebaseFirestore?
         get() = if (isFirebaseAvailable) try { FirebaseFirestore.getInstance() } catch (_: Exception) { null } else null
+
+    private val storage: FirebaseStorage?
+        get() = if (isFirebaseAvailable) try { FirebaseStorage.getInstance() } catch (_: Exception) { null } else null
 
     override fun getCurrentUser(): UserProfile? {
         val auth = firebaseAuth
@@ -65,8 +69,7 @@ class FirebaseAuthAdapter(
             return try {
                 val result = auth.signInWithEmailAndPassword(email, password).awaitTask()
                 val firebaseUser = result.user ?: return AuthResult.Error("Error al iniciar sesión")
-                
-                // Obtener perfil desde Firestore
+
                 val doc = db.collection("users").document(firebaseUser.uid).get().awaitTask()
                 val userProfile = if (doc.exists()) {
                     UserProfile(
@@ -86,13 +89,13 @@ class FirebaseAuthAdapter(
                         photoUrl = firebaseUser.photoUrl?.toString() ?: ""
                     )
                 }
+                fallbackCurrentUser = userProfile
                 AuthResult.Success(userProfile)
             } catch (e: Exception) {
                 AuthResult.Error(e.localizedMessage ?: "Error de autenticación en Firebase")
             }
         }
 
-        // Modo de respaldo en memoria
         val userPair = fallbackUsers.values.find { it.first.email.equals(email, ignoreCase = true) }
             ?: return AuthResult.Error("Credenciales incorrectas")
 
@@ -161,7 +164,9 @@ class FirebaseAuthAdapter(
                 val result = auth.createUserWithEmailAndPassword(user.email, password).awaitTask()
                 val firebaseUser = result.user ?: return AuthResult.Error("Error al registrar usuario")
 
-                val registeredProfile = user.copy(id = firebaseUser.uid)
+                // Subir foto a Firebase Storage si es una URI de galería
+                val uploadedPhotoUrl = uploadProfileImageIfNeeded(firebaseUser.uid, user.photoUrl)
+                val registeredProfile = user.copy(id = firebaseUser.uid, photoUrl = uploadedPhotoUrl)
 
                 val userMap = mapOf(
                     "username" to registeredProfile.username,
@@ -172,6 +177,7 @@ class FirebaseAuthAdapter(
                 )
 
                 db.collection("users").document(firebaseUser.uid).set(userMap).awaitTask()
+                fallbackCurrentUser = registeredProfile
 
                 AuthResult.Success(registeredProfile)
             } catch (e: Exception) {
@@ -179,7 +185,6 @@ class FirebaseAuthAdapter(
             }
         }
 
-        // Modo de respaldo en memoria
         val newUid = "local_" + System.currentTimeMillis()
         val createdProfile = user.copy(id = newUid)
         fallbackUsers[newUid] = Pair(createdProfile, password)
@@ -194,7 +199,11 @@ class FirebaseAuthAdapter(
         if (auth != null && db != null && auth.currentUser != null) {
             return try {
                 val uid = auth.currentUser!!.uid
-                val updatedProfile = user.copy(id = uid)
+
+                // Subir nueva foto a Firebase Storage si proviene de la galería
+                val uploadedPhotoUrl = uploadProfileImageIfNeeded(uid, user.photoUrl)
+                val updatedProfile = user.copy(id = uid, photoUrl = uploadedPhotoUrl)
+
                 val userMap = mapOf(
                     "username" to updatedProfile.username,
                     "email" to updatedProfile.email,
@@ -203,6 +212,8 @@ class FirebaseAuthAdapter(
                     "description" to updatedProfile.description
                 )
                 db.collection("users").document(uid).update(userMap).awaitTask()
+                fallbackCurrentUser = updatedProfile
+
                 AuthResult.Success(updatedProfile)
             } catch (e: Exception) {
                 AuthResult.Error(e.localizedMessage ?: "Error al actualizar perfil en Firebase")
@@ -230,8 +241,16 @@ class FirebaseAuthAdapter(
         if (auth != null && db != null && auth.currentUser != null) {
             return try {
                 val uid = auth.currentUser!!.uid
+
+                // Intentar eliminar foto de perfil de Firebase Storage
+                try {
+                    storage?.reference?.child("profile_images/$uid.jpg")?.delete()?.awaitTask()
+                } catch (_: Exception) {}
+
                 db.collection("users").document(uid).delete().awaitTask()
                 auth.currentUser!!.delete().awaitTask()
+                fallbackCurrentUser = null
+
                 AuthResult.Success(Unit)
             } catch (e: Exception) {
                 AuthResult.Error(e.localizedMessage ?: "Error al borrar cuenta en Firebase")
@@ -242,6 +261,27 @@ class FirebaseAuthAdapter(
         fallbackUsers.remove(current.id)
         fallbackCurrentUser = null
         return AuthResult.Success(Unit)
+    }
+
+    /**
+     * Sube la imagen de perfil a Firebase Storage si es una URI local (`content://` o `file://`).
+     * Retorna la URL pública de descarga devuelta por Firebase Storage.
+     */
+    private suspend fun uploadProfileImageIfNeeded(uid: String, photoUrl: String): String {
+        if (photoUrl.isBlank()) return ""
+        if (photoUrl.startsWith("http://") || photoUrl.startsWith("https://")) {
+            return photoUrl // Ya es una URL pública almacenada en la nube
+        }
+
+        val firebaseStorage = storage ?: return photoUrl
+        return try {
+            val uri = Uri.parse(photoUrl)
+            val ref = firebaseStorage.reference.child("profile_images/$uid.jpg")
+            ref.putFile(uri).awaitTask()
+            ref.downloadUrl.awaitTask().toString()
+        } catch (_: Exception) {
+            photoUrl // Si falla Storage o no está inicializado, mantiene la URI local como respaldo
+        }
     }
 
     private suspend fun <T> Task<T>.awaitTask(): T = suspendCancellableCoroutine { continuation ->

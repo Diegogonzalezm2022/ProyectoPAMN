@@ -1,21 +1,40 @@
 package com.ulpgc.proyectopamn.adapters.primary.ui.auth
 
+import android.content.Context
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.net.Uri
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -29,6 +48,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -43,6 +67,7 @@ import kotlinx.coroutines.launch
 /**
  * Pantalla de Autenticación (Login y Registro) - Adaptador Primario UI
  *
+ * Permite seleccionar la foto de perfil directamente desde la galería del teléfono.
  * Cumple con los criterios de accesibilidad WCAG 2.1 y Material Design 3.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,6 +77,7 @@ fun AuthScreen(
     onAuthSuccess: (UserProfile) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var isRegisterMode by remember { mutableStateOf(false) }
 
     // Campos de entrada
@@ -67,6 +93,17 @@ fun AuthScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
+
+    // Selector de imágenes de la galería
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            photoUrl = it.toString()
+        }
+    }
+
+    val selectedBitmap = rememberImageBitmapFromUri(context, photoUrl)
 
     Scaffold(
         topBar = {
@@ -122,6 +159,49 @@ fun AuthScreen(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                 )
             } else {
+                // Selector de Foto de Perfil desde Galería
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .clickable { galleryLauncher.launch("image/*") }
+                        .semantics { contentDescription = "Seleccionar foto de perfil desde la galería" },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (selectedBitmap != null) {
+                        Image(
+                            bitmap = selectedBitmap,
+                            contentDescription = "Foto de perfil seleccionada de la galería",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "Foto de perfil por defecto",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = { galleryLauncher.launch("image/*") },
+                    modifier = Modifier
+                        .padding(bottom = 16.dp)
+                        .heightIn(min = 48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text(if (photoUrl.isBlank()) "Elegir foto de la galería" else "Cambiar foto de la galería")
+                }
+
                 // Formulario de Registro
                 OutlinedTextField(
                     value = username,
@@ -150,16 +230,6 @@ fun AuthScreen(
                     label = { Text("Número de Teléfono") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp)
-                )
-
-                OutlinedTextField(
-                    value = photoUrl,
-                    onValueChange = { photoUrl = it },
-                    label = { Text("URL Foto de Perfil (Opcional)") },
-                    singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 12.dp)
@@ -244,6 +314,29 @@ fun AuthScreen(
                     text = if (isRegisterMode) "¿Ya tienes cuenta? Inicia Sesión" else "¿No tienes cuenta? Regístrate aquí"
                 )
             }
+        }
+    }
+}
+
+/**
+ * Carga de forma segura una imagen Bitmap a partir de una URI de la galería.
+ */
+@Composable
+fun rememberImageBitmapFromUri(context: Context, uriString: String): ImageBitmap? {
+    return remember(uriString) {
+        if (uriString.isBlank()) return@remember null
+        try {
+            val uri = Uri.parse(uriString)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val source = ImageDecoder.createSource(context.contentResolver, uri)
+                ImageDecoder.decodeBitmap(source).asImageBitmap()
+            } else {
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                }
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 }
