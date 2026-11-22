@@ -5,12 +5,15 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthViewModel
 import com.ulpgc.proyectopamn.adapters.secondary.network.firebase.FirebaseAuthAdapter
+import com.ulpgc.proyectopamn.adapters.secondary.network.firebase.FirestoreProductAdapter
 import com.ulpgc.proyectopamn.adapters.secondary.persistence.mock.InMemoryAuthGateway
+import com.ulpgc.proyectopamn.adapters.secondary.persistence.mock.InMemoryProductRepository
 import com.ulpgc.proyectopamn.application.usecase.AuthUseCase
 import com.ulpgc.proyectopamn.application.usecase.LoginUseCase
 import com.ulpgc.proyectopamn.application.usecase.RegisterUseCase
 import com.ulpgc.proyectopamn.domain.ports.input.AuthInputPort
 import com.ulpgc.proyectopamn.domain.ports.output.AuthOutputPort
+import com.ulpgc.proyectopamn.domain.ports.output.ProductOutputPort
 
 /**
  * Punto de Ensamblado / Contenedor de Dependencias (Composition Root)
@@ -38,10 +41,25 @@ object AppDependencyContainer {
             authOutputPortInstance = it
         }
 
-        val newUseCase = AuthUseCase(outputPort)
+        val newUseCase = AuthUseCase(outputPort, getProductOutputPort(useMock))
         authInputPortInstance = newUseCase
         return newUseCase
     }
+
+    private var productOutputPortInstance: ProductOutputPort? = null
+
+    /**
+     * Puerto de salida de productos: Firestore (colección `products`) o memoria para probar.
+     * Una sola instancia para toda la app.
+     */
+    private fun getProductOutputPort(useMock: Boolean): ProductOutputPort =
+        productOutputPortInstance ?: if (useMock) {
+            InMemoryProductRepository()
+        } else {
+            FirestoreProductAdapter()
+        }.also {
+            productOutputPortInstance = it
+        }
 
     /**
      * Fábrica para AuthViewModel manteniendo compatibilidad.

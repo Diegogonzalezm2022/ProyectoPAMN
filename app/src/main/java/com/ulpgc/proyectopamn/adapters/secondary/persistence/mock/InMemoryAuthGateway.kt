@@ -79,12 +79,17 @@ class InMemoryAuthGateway : AuthOutputPort {
         loggedUser = null
     }
 
-    override suspend fun deleteAccount(password: String): AuthResult<Unit> {
+    override suspend fun reauthenticate(password: String): AuthResult<Unit> {
         val current = loggedUser ?: return AuthResult.Error("No hay sesión activa")
         val account = accounts.values.find { it.userProfile.id == current.id }
         if (account == null || account.password != password) {
             return AuthResult.Error("Contraseña incorrecta")
         }
+        return AuthResult.Success(Unit)
+    }
+
+    override suspend fun deleteAccount(): AuthResult<Unit> {
+        val current = loggedUser ?: return AuthResult.Error("No hay sesión activa")
         accounts.values.removeIf { it.userProfile.id == current.id }
         loggedUser = null
         return AuthResult.Success(Unit)
