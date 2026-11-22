@@ -14,13 +14,13 @@ class AuthUseCase(
     private val authOutputPort: AuthOutputPort
 ) : AuthInputPort {
 
-    override fun getCurrentUser(): UserProfile? {
+    override suspend fun getCurrentUser(): UserProfile? {
         return authOutputPort.getCurrentUser()
     }
 
     override suspend fun login(identifier: String, password: String): AuthResult<UserProfile> {
         val trimmedIdentifier = identifier.trim()
-        val trimmedPassword = password.trim()
+        val trimmedPassword = password
 
         if (trimmedIdentifier.isEmpty()) {
             return AuthResult.Error("El identificador (usuario, email o teléfono) es requerido")
@@ -81,15 +81,22 @@ class AuthUseCase(
         if (user.username.isBlank()) {
             return AuthResult.Error("El nombre de usuario no puede estar vacío")
         }
-        return authOutputPort.updateProfile(user)
+        val current = authOutputPort.getCurrentUser()
+            ?: return AuthResult.Error("No hay sesión activa")
+        // Regla de negocio: el email es el que usa Firebase Auth para entrar y no se cambia
+        // desde el perfil. Si se cambiara solo en Firestore, el usuario no podría volver a entrar.
+        return authOutputPort.updateProfile(user.copy(email = current.email))
     }
 
     override suspend fun logout() {
         authOutputPort.logout()
     }
 
-    override suspend fun deleteAccount(): AuthResult<Unit> {
-        return authOutputPort.deleteAccount()
+    override suspend fun deleteAccount(password: String): AuthResult<Unit> {
+        if (password.isEmpty()) {
+            return AuthResult.Error("Escribe tu contraseña para confirmar")
+        }
+        return authOutputPort.deleteAccount(password)
     }
 
     private fun isPhoneNumber(text: String): Boolean {

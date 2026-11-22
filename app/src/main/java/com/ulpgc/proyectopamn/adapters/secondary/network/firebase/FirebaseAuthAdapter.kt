@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -44,19 +45,27 @@ class FirebaseAuthAdapter(
     private val storage: FirebaseStorage?
         get() = if (isFirebaseAvailable) try { FirebaseStorage.getInstance() } catch (_: Exception) { null } else null
 
-    override fun getCurrentUser(): UserProfile? {
+    override suspend fun getCurrentUser(): UserProfile? {
         val auth = firebaseAuth
         val db = firestore
-        if (auth != null && db != null && auth.currentUser != null) {
-            val firebaseUser = auth.currentUser!!
-            return UserProfile(
-                id = firebaseUser.uid,
-                username = firebaseUser.displayName ?: "",
-                email = firebaseUser.email ?: "",
-                phone = firebaseUser.phoneNumber ?: "",
-                photoUrl = firebaseUser.photoUrl?.toString() ?: "",
-                description = ""
-            )
+        val firebaseUser = auth?.currentUser
+        if (db != null && firebaseUser != null) {
+            // Firebase Auth recuerda la sesión, pero el nombre, teléfono, foto y descripción
+            // solo están en Firestore: hay que leerlos de ahí, no de `displayName` (que nunca se rellena).
+            return try {
+                val doc = db.collection("users").document(firebaseUser.uid).get().awaitTask()
+                UserProfile(
+                    id = firebaseUser.uid,
+                    username = doc.getString("username") ?: "",
+                    email = doc.getString("email") ?: firebaseUser.email ?: "",
+                    phone = doc.getString("phone") ?: "",
+                    photoUrl = doc.getString("photoUrl") ?: "",
+                    description = doc.getString("description") ?: ""
+                )
+            } catch (_: Exception) {
+                // Sin conexión y sin caché: al menos se mantiene la sesión con el email.
+                UserProfile(id = firebaseUser.uid, email = firebaseUser.email ?: "")
+            }
         }
         return fallbackCurrentUser
     }
@@ -164,8 +173,9 @@ class FirebaseAuthAdapter(
                 val result = auth.createUserWithEmailAndPassword(user.email, password).awaitTask()
                 val firebaseUser = result.user ?: return AuthResult.Error("Error al registrar usuario")
 
-                // Subir foto a Firebase Storage si es una URI de galería
-                val uploadedPhotoUrl = uploadProfileImageIfNeeded(firebaseUser.uid, user.photoUrl)
+                // Subir foto a Firebase Storage si es una URI de galería.
+                // La cuenta ya está creada: si la foto falla, se registra sin foto (se puede poner luego).
+                val uploadedPhotoUrl = uploadProfileImageIfNeeded(firebaseUser.uid, user.photoUrl) ?: ""
                 val registeredProfile = user.copy(id = firebaseUser.uid, photoUrl = uploadedPhotoUrl)
 
                 val userMap = mapOf(
@@ -202,6 +212,7 @@ class FirebaseAuthAdapter(
 
                 // Subir nueva foto a Firebase Storage si proviene de la galería
                 val uploadedPhotoUrl = uploadProfileImageIfNeeded(uid, user.photoUrl)
+                    ?: return AuthResult.Error("No se pudo subir la foto. Inténtalo de nuevo.")
                 val updatedProfile = user.copy(id = uid, photoUrl = uploadedPhotoUrl)
 
                 val userMap = mapOf(
@@ -234,21 +245,32 @@ class FirebaseAuthAdapter(
         fallbackCurrentUser = null
     }
 
-    override suspend fun deleteAccount(): AuthResult<Unit> {
+    override suspend fun deleteAccount(password: String): AuthResult<Unit> {
         val auth = firebaseAuth
         val db = firestore
+        val firebaseUser = auth?.currentUser
 
-        if (auth != null && db != null && auth.currentUser != null) {
+        if (db != null && firebaseUser != null) {
+            val email = firebaseUser.email ?: return AuthResult.Error("No se pudo identificar la cuenta")
+
+            // 1. Reautenticar ANTES de borrar nada. Firebase exige un inicio de sesión reciente
+            //    para borrar la cuenta; si lo comprobáramos al final, el perfil ya estaría borrado.
+            try {
+                firebaseUser.reauthenticate(EmailAuthProvider.getCredential(email, password)).awaitTask()
+            } catch (_: Exception) {
+                return AuthResult.Error("Contraseña incorrecta")
+            }
+
             return try {
-                val uid = auth.currentUser!!.uid
-
-                // Intentar eliminar foto de perfil de Firebase Storage
+                val uid = firebaseUser.uid
+                // 2. Foto (puede no existir: si falla, seguimos).
                 try {
                     storage?.reference?.child("profile_images/$uid.jpg")?.delete()?.awaitTask()
                 } catch (_: Exception) {}
-
+                // 3. Perfil en Firestore (necesita la sesión, por eso va antes que la cuenta).
                 db.collection("users").document(uid).delete().awaitTask()
-                auth.currentUser!!.delete().awaitTask()
+                // 4. Por último, la cuenta de Auth.
+                firebaseUser.delete().awaitTask()
                 fallbackCurrentUser = null
 
                 AuthResult.Success(Unit)
@@ -258,6 +280,9 @@ class FirebaseAuthAdapter(
         }
 
         val current = fallbackCurrentUser ?: return AuthResult.Error("No hay sesión activa")
+        if (fallbackUsers[current.id]?.second != password) {
+            return AuthResult.Error("Contraseña incorrecta")
+        }
         fallbackUsers.remove(current.id)
         fallbackCurrentUser = null
         return AuthResult.Success(Unit)
@@ -265,22 +290,25 @@ class FirebaseAuthAdapter(
 
     /**
      * Sube la imagen de perfil a Firebase Storage si es una URI local (`content://` o `file://`).
-     * Retorna la URL pública de descarga devuelta por Firebase Storage.
+     * Retorna la URL pública de descarga, o `null` si no se pudo subir.
+     *
+     * Nunca devuelve la ruta local: `content://...` solo existe en este móvil y caduca,
+     * así que guardarla en Firestore dejaría una foto rota para todos los demás.
      */
-    private suspend fun uploadProfileImageIfNeeded(uid: String, photoUrl: String): String {
+    private suspend fun uploadProfileImageIfNeeded(uid: String, photoUrl: String): String? {
         if (photoUrl.isBlank()) return ""
         if (photoUrl.startsWith("http://") || photoUrl.startsWith("https://")) {
             return photoUrl // Ya es una URL pública almacenada en la nube
         }
 
-        val firebaseStorage = storage ?: return photoUrl
+        val firebaseStorage = storage ?: return null
         return try {
             val uri = Uri.parse(photoUrl)
             val ref = firebaseStorage.reference.child("profile_images/$uid.jpg")
             ref.putFile(uri).awaitTask()
             ref.downloadUrl.awaitTask().toString()
         } catch (_: Exception) {
-            photoUrl // Si falla Storage o no está inicializado, mantiene la URI local como respaldo
+            null
         }
     }
 
