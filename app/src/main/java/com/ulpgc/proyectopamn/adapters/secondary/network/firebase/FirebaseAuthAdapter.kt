@@ -2,7 +2,6 @@ package com.ulpgc.proyectopamn.adapters.secondary.network.firebase
 
 import android.content.Context
 import android.net.Uri
-import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
@@ -11,9 +10,6 @@ import com.google.firebase.storage.FirebaseStorage
 import com.ulpgc.proyectopamn.domain.model.AuthResult
 import com.ulpgc.proyectopamn.domain.model.UserProfile
 import com.ulpgc.proyectopamn.domain.ports.output.AuthOutputPort
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 /**
  * Adaptador Secundario (Driven Adapter) para Autenticación e Infraestructura con Firebase.
@@ -245,31 +241,43 @@ class FirebaseAuthAdapter(
         fallbackCurrentUser = null
     }
 
-    override suspend fun deleteAccount(password: String): AuthResult<Unit> {
+    override suspend fun reauthenticate(password: String): AuthResult<Unit> {
+        val firebaseUser = firebaseAuth?.currentUser
+        if (firebaseUser != null) {
+            val email = firebaseUser.email ?: return AuthResult.Error("No se pudo identificar la cuenta")
+            // Firebase exige un inicio de sesión reciente para borrar la cuenta:
+            // volver a comprobar la contraseña cuenta como "reciente".
+            return try {
+                firebaseUser.reauthenticate(EmailAuthProvider.getCredential(email, password)).awaitTask()
+                AuthResult.Success(Unit)
+            } catch (_: Exception) {
+                AuthResult.Error("Contraseña incorrecta")
+            }
+        }
+
+        val current = fallbackCurrentUser ?: return AuthResult.Error("No hay sesión activa")
+        return if (fallbackUsers[current.id]?.second == password) {
+            AuthResult.Success(Unit)
+        } else {
+            AuthResult.Error("Contraseña incorrecta")
+        }
+    }
+
+    override suspend fun deleteAccount(): AuthResult<Unit> {
         val auth = firebaseAuth
         val db = firestore
         val firebaseUser = auth?.currentUser
 
         if (db != null && firebaseUser != null) {
-            val email = firebaseUser.email ?: return AuthResult.Error("No se pudo identificar la cuenta")
-
-            // 1. Reautenticar ANTES de borrar nada. Firebase exige un inicio de sesión reciente
-            //    para borrar la cuenta; si lo comprobáramos al final, el perfil ya estaría borrado.
-            try {
-                firebaseUser.reauthenticate(EmailAuthProvider.getCredential(email, password)).awaitTask()
-            } catch (_: Exception) {
-                return AuthResult.Error("Contraseña incorrecta")
-            }
-
             return try {
                 val uid = firebaseUser.uid
-                // 2. Foto (puede no existir: si falla, seguimos).
+                // 1. Foto (puede no existir: si falla, seguimos).
                 try {
                     storage?.reference?.child("profile_images/$uid.jpg")?.delete()?.awaitTask()
                 } catch (_: Exception) {}
-                // 3. Perfil en Firestore (necesita la sesión, por eso va antes que la cuenta).
+                // 2. Perfil en Firestore (necesita la sesión, por eso va antes que la cuenta).
                 db.collection("users").document(uid).delete().awaitTask()
-                // 4. Por último, la cuenta de Auth.
+                // 3. Por último, la cuenta de Auth.
                 firebaseUser.delete().awaitTask()
                 fallbackCurrentUser = null
 
@@ -280,9 +288,6 @@ class FirebaseAuthAdapter(
         }
 
         val current = fallbackCurrentUser ?: return AuthResult.Error("No hay sesión activa")
-        if (fallbackUsers[current.id]?.second != password) {
-            return AuthResult.Error("Contraseña incorrecta")
-        }
         fallbackUsers.remove(current.id)
         fallbackCurrentUser = null
         return AuthResult.Success(Unit)
@@ -310,10 +315,5 @@ class FirebaseAuthAdapter(
         } catch (_: Exception) {
             null
         }
-    }
-
-    private suspend fun <T> Task<T>.awaitTask(): T = suspendCancellableCoroutine { continuation ->
-        addOnSuccessListener { result -> continuation.resume(result) }
-        addOnFailureListener { exception -> continuation.resumeWithException(exception) }
     }
 }

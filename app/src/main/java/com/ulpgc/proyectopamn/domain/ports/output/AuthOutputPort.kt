@@ -15,6 +15,8 @@ interface AuthOutputPort {
     suspend fun register(user: UserProfile, password: String): AuthResult<UserProfile>
     suspend fun updateProfile(user: UserProfile): AuthResult<UserProfile>
     suspend fun logout()
-    /** Pide la contraseña para confirmar que es el dueño antes de borrar nada. */
-    suspend fun deleteAccount(password: String): AuthResult<Unit>
+    /** Comprueba la contraseña del usuario actual (Firebase lo exige antes de borrar la cuenta). */
+    suspend fun reauthenticate(password: String): AuthResult<Unit>
+    /** Borra perfil y cuenta del usuario actual. Llamar solo después de [reauthenticate]. */
+    suspend fun deleteAccount(): AuthResult<Unit>
 }

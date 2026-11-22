@@ -4,6 +4,7 @@ import com.ulpgc.proyectopamn.domain.model.AuthResult
 import com.ulpgc.proyectopamn.domain.model.UserProfile
 import com.ulpgc.proyectopamn.domain.ports.input.AuthInputPort
 import com.ulpgc.proyectopamn.domain.ports.output.AuthOutputPort
+import com.ulpgc.proyectopamn.domain.ports.output.ProductOutputPort
 
 /**
  * Caso de Uso de Autenticación y Gestión de Usuarios.
@@ -11,7 +12,8 @@ import com.ulpgc.proyectopamn.domain.ports.output.AuthOutputPort
  * Permite la autenticación con usuario, email o número de teléfono y contraseña.
  */
 class AuthUseCase(
-    private val authOutputPort: AuthOutputPort
+    private val authOutputPort: AuthOutputPort,
+    private val productOutputPort: ProductOutputPort,
 ) : AuthInputPort {
 
     override suspend fun getCurrentUser(): UserProfile? {
@@ -96,7 +98,22 @@ class AuthUseCase(
         if (password.isEmpty()) {
             return AuthResult.Error("Escribe tu contraseña para confirmar")
         }
-        return authOutputPort.deleteAccount(password)
+        val user = authOutputPort.getCurrentUser()
+            ?: return AuthResult.Error("No hay sesión activa")
+
+        // El orden importa: si algo falla, se para antes de borrar nada que no se pueda recuperar.
+        // 1. Comprobar que es el dueño.
+        val reauth = authOutputPort.reauthenticate(password)
+        if (reauth is AuthResult.Error) return reauth
+
+        // 2. Retirar lo que tiene en venta (lo ya vendido se conserva como historial).
+        //    Va antes que la cuenta porque, sin sesión, la base de datos no dejaría borrarlos.
+        productOutputPort.deleteAvailableBySeller(user.id).onFailure {
+            return AuthResult.Error("No se pudieron retirar tus productos. Inténtalo de nuevo.")
+        }
+
+        // 3. Borrar perfil y cuenta.
+        return authOutputPort.deleteAccount()
     }
 
     private fun isPhoneNumber(text: String): Boolean {
