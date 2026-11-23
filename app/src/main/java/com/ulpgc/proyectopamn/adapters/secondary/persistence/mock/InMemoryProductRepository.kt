@@ -11,9 +11,10 @@ import com.ulpgc.proyectopamn.domain.ports.output.ProductOutputPort
 class InMemoryProductRepository : ProductOutputPort {
 
     private val products = mutableMapOf<String, Product>()
+    private var nextId = 1
 
     override suspend fun save(product: Product): Result<Product> {
-        val saved = if (product.id.isBlank()) product.copy(id = "local_" + System.currentTimeMillis()) else product
+        val saved = if (product.id.isBlank()) product.copy(id = "local_${nextId++}") else product
         products[saved.id] = saved
         return Result.success(saved)
     }
