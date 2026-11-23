@@ -28,4 +28,43 @@
     <string name="auth_error_email_in_use">There is already an account with this email. Log in instead.</string>
     <string name="auth_error_invalid_credentials">Incorrect email or password.</string>
     <string name="auth_error_unknown">Something went wrong. Please try again.</string>
+
+    <!-- Mis productos -->
+    <string name="my_products_title">Mis productos</string>
+    <string name="my_products_loading">Cargando tus productos</string>
+    <string name="my_products_empty_title">Aún no tienes productos</string>
+    <string name="my_products_empty_message">Pulsa el botón + para publicar el primero.</string>
+    <string name="my_products_add">Añadir producto</string>
+    <string name="my_products_retry">Reintentar</string>
+    <string name="my_products_free">Gratis</string>
+    <string name="my_products_status_available">En venta</string>
+    <string name="my_products_status_sold">Vendido</string>
+    <string name="my_products_error_not_logged_in">Tu sesión ha caducado. Vuelve a iniciar sesión.</string>
+    <string name="my_products_error_generic">No se han podido cargar tus productos. Comprueba tu conexión y vuelve a intentarlo.</string>
+
+    <!-- Editor de producto -->
+    <string name="editor_title_new">Nuevo producto</string>
+    <string name="editor_title_edit">Editar producto</string>
+    <string name="editor_back">Volver</string>
+    <string name="editor_field_title">Título</string>
+    <string name="editor_field_title_hint">Obligatorio. Por ejemplo: Bicicleta de montaña</string>
+    <string name="editor_field_description">Descripción (opcional)</string>
+    <string name="editor_field_description_hint">Estado, medidas, detalles que ayuden al comprador.</string>
+    <string name="editor_field_price">Precio</string>
+    <string name="editor_field_price_hint">En euros, por ejemplo 12,50. Pon 0 si lo regalas.</string>
+    <string name="editor_price_suffix">€</string>
+    <string name="editor_save_new">Publicar</string>
+    <string name="editor_save_edit">Guardar cambios</string>
+    <string name="editor_saving">Guardando…</string>
+    <string name="editor_saved_created">Producto publicado</string>
+    <string name="editor_saved_updated">Cambios guardados</string>
+    <string name="editor_error_title">Escribe un título para tu producto.</string>
+    <string name="editor_error_price">Escribe un precio válido, por ejemplo 12,50 (como mucho 2 decimales).</string>
+    <string name="editor_error_not_found">Este producto ya no existe.</string>
+    <string name="editor_error_not_owner">Solo puedes editar tus propios productos.</string>
+    <string name="editor_error_generic">No se ha podido guardar. Comprueba tu conexión y vuelve a intentarlo.</string>
+    <string name="editor_discard_title">¿Descartar los cambios?</string>
+    <string name="editor_discard_message">Si sales ahora, se perderá lo que has escrito.</string>
+    <string name="editor_discard_confirm">Descartar</string>
+    <string name="editor_discard_dismiss">Seguir editando</string>
 </resources>

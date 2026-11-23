@@ -50,7 +50,8 @@ import java.util.Locale
  */
 @Composable
 fun MyProductsScreen(
-    onAddClick: () -> Unit = {},
+    onAddClick: () -> Unit,
+    onProductClick: (Product) -> Unit,
 ) {
     val context = LocalContext.current
     val viewModel: MyProductsViewModel = viewModel(
@@ -64,6 +65,7 @@ fun MyProductsScreen(
         uiState = viewModel.uiState,
         onRetry = viewModel::loadProducts,
         onAddClick = onAddClick,
+        onProductClick = onProductClick,
     )
 }
 
@@ -76,6 +78,7 @@ fun MyProductsContent(
     uiState: MyProductsUiState,
     onRetry: () -> Unit,
     onAddClick: () -> Unit,
+    onProductClick: (Product) -> Unit = {},
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -89,7 +92,7 @@ fun MyProductsContent(
             when (uiState) {
                 MyProductsUiState.Loading -> LoadingState()
                 MyProductsUiState.Empty -> EmptyState()
-                is MyProductsUiState.Success -> ProductList(uiState.products)
+                is MyProductsUiState.Success -> ProductList(uiState.products, onProductClick)
                 is MyProductsUiState.Error -> ErrorState(uiState.messageRes, onRetry)
             }
         }
@@ -164,25 +167,25 @@ private fun CenteredMessage(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun ProductList(products: List<Product>) {
+private fun ProductList(products: List<Product>, onProductClick: (Product) -> Unit) {
     LazyColumn(
         // Margen de abajo grande para que el + no tape el último producto.
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 88.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(products, key = { it.id }) { product ->
-            MyProductItem(product)
+            MyProductItem(product, onClick = { onProductClick(product) })
         }
     }
 }
 
 @Composable
-private fun MyProductItem(product: Product) {
-    // mergeDescendants: TalkBack lee la tarjeta entera de una vez ("Bici, 50 €, En venta").
+private fun MyProductItem(product: Product, onClick: () -> Unit) {
+    // Al ser pulsable, la tarjeta agrupa su contenido: TalkBack la lee de una vez
+    // ("Bici, 50 €, En venta") y avisa de que se puede pulsar.
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics(mergeDescendants = true) {},
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text = product.title, style = MaterialTheme.typography.titleMedium)

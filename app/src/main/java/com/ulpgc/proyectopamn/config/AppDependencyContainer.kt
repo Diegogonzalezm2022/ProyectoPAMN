@@ -4,17 +4,23 @@ import android.content.Context
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthViewModel
+import com.ulpgc.proyectopamn.adapters.primary.ui.editor.ProductEditorViewModel
 import com.ulpgc.proyectopamn.adapters.primary.ui.myproducts.MyProductsViewModel
 import com.ulpgc.proyectopamn.adapters.secondary.network.firebase.FirebaseAuthAdapter
 import com.ulpgc.proyectopamn.adapters.secondary.network.firebase.FirestoreProductAdapter
 import com.ulpgc.proyectopamn.adapters.secondary.persistence.mock.InMemoryAuthGateway
 import com.ulpgc.proyectopamn.adapters.secondary.persistence.mock.InMemoryProductRepository
 import com.ulpgc.proyectopamn.application.usecase.AuthUseCase
+import com.ulpgc.proyectopamn.application.usecase.CreateProductUseCase
 import com.ulpgc.proyectopamn.application.usecase.GetMyProductsUseCase
+import com.ulpgc.proyectopamn.application.usecase.UpdateProductUseCase
 import com.ulpgc.proyectopamn.application.usecase.LoginUseCase
 import com.ulpgc.proyectopamn.application.usecase.RegisterUseCase
+import com.ulpgc.proyectopamn.domain.model.Product
 import com.ulpgc.proyectopamn.domain.ports.input.AuthInputPort
+import com.ulpgc.proyectopamn.domain.ports.input.CreateProductInputPort
 import com.ulpgc.proyectopamn.domain.ports.input.GetMyProductsInputPort
+import com.ulpgc.proyectopamn.domain.ports.input.UpdateProductInputPort
 import com.ulpgc.proyectopamn.domain.ports.output.AuthOutputPort
 import com.ulpgc.proyectopamn.domain.ports.output.ProductOutputPort
 
@@ -76,6 +82,28 @@ object AppDependencyContainer {
         }.also {
             productOutputPortInstance = it
         }
+
+    /** Caso de uso "publicar un producto". */
+    fun getCreateProductInputPort(context: Context, useMock: Boolean = false): CreateProductInputPort =
+        CreateProductUseCase(getAuthOutputPort(context, useMock), getProductOutputPort(useMock))
+
+    /** Caso de uso "editar uno de mis productos". */
+    fun getUpdateProductInputPort(context: Context, useMock: Boolean = false): UpdateProductInputPort =
+        UpdateProductUseCase(getAuthOutputPort(context, useMock), getProductOutputPort(useMock))
+
+    /**
+     * Fábrica para el editor. Recibe el producto a editar (o `null` para crear uno nuevo),
+     * así el ViewModel nace ya con los datos rellenos.
+     */
+    fun getProductEditorViewModelFactory(context: Context, product: Product?) = viewModelFactory {
+        initializer {
+            ProductEditorViewModel(
+                createProduct = getCreateProductInputPort(context),
+                updateProduct = getUpdateProductInputPort(context),
+                productToEdit = product,
+            )
+        }
+    }
 
     /**
      * Fábrica para MyProductsViewModel. Android crea los ViewModels por su cuenta
