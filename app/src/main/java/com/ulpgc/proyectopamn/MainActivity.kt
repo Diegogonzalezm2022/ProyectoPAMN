@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthScreen
+import com.ulpgc.proyectopamn.adapters.primary.ui.myproducts.MyProductsScreen
 import com.ulpgc.proyectopamn.adapters.primary.ui.user.UserProfileScreen
 import com.ulpgc.proyectopamn.config.AppDependencyContainer
 import com.ulpgc.proyectopamn.domain.model.UserProfile
@@ -132,19 +133,6 @@ fun ProyectoPAMNApp(
                 }
             }
         }
-    }
-}
-
-@Composable
-fun MyProductsScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "Mis Productos",
-            style = MaterialTheme.typography.headlineSmall
-        )
     }
 }
 

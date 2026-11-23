@@ -4,14 +4,17 @@ import android.content.Context
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthViewModel
+import com.ulpgc.proyectopamn.adapters.primary.ui.myproducts.MyProductsViewModel
 import com.ulpgc.proyectopamn.adapters.secondary.network.firebase.FirebaseAuthAdapter
 import com.ulpgc.proyectopamn.adapters.secondary.network.firebase.FirestoreProductAdapter
 import com.ulpgc.proyectopamn.adapters.secondary.persistence.mock.InMemoryAuthGateway
 import com.ulpgc.proyectopamn.adapters.secondary.persistence.mock.InMemoryProductRepository
 import com.ulpgc.proyectopamn.application.usecase.AuthUseCase
+import com.ulpgc.proyectopamn.application.usecase.GetMyProductsUseCase
 import com.ulpgc.proyectopamn.application.usecase.LoginUseCase
 import com.ulpgc.proyectopamn.application.usecase.RegisterUseCase
 import com.ulpgc.proyectopamn.domain.ports.input.AuthInputPort
+import com.ulpgc.proyectopamn.domain.ports.input.GetMyProductsInputPort
 import com.ulpgc.proyectopamn.domain.ports.output.AuthOutputPort
 import com.ulpgc.proyectopamn.domain.ports.output.ProductOutputPort
 
@@ -33,7 +36,18 @@ object AppDependencyContainer {
         val currentInstance = authInputPortInstance
         if (currentInstance != null) return currentInstance
 
-        val outputPort = authOutputPortInstance ?: if (useMock) {
+        val newUseCase = AuthUseCase(getAuthOutputPort(context, useMock), getProductOutputPort(useMock))
+        authInputPortInstance = newUseCase
+        return newUseCase
+    }
+
+    /**
+     * Puerto de salida de autenticación: Firebase o memoria para probar.
+     * Una sola instancia para toda la app, compartida por todos los casos de uso
+     * que necesitan saber quién tiene la sesión iniciada.
+     */
+    private fun getAuthOutputPort(context: Context, useMock: Boolean): AuthOutputPort =
+        authOutputPortInstance ?: if (useMock) {
             InMemoryAuthGateway()
         } else {
             FirebaseAuthAdapter(context.applicationContext)
@@ -41,10 +55,12 @@ object AppDependencyContainer {
             authOutputPortInstance = it
         }
 
-        val newUseCase = AuthUseCase(outputPort, getProductOutputPort(useMock))
-        authInputPortInstance = newUseCase
-        return newUseCase
-    }
+    /**
+     * Caso de uso "ver mis productos". Es barato de crear (no guarda estado),
+     * así que no hace falta guardarlo: lo importante es que los puertos de salida sí son únicos.
+     */
+    fun getMyProductsInputPort(context: Context, useMock: Boolean = false): GetMyProductsInputPort =
+        GetMyProductsUseCase(getAuthOutputPort(context, useMock), getProductOutputPort(useMock))
 
     private var productOutputPortInstance: ProductOutputPort? = null
 
@@ -60,6 +76,17 @@ object AppDependencyContainer {
         }.also {
             productOutputPortInstance = it
         }
+
+    /**
+     * Fábrica para MyProductsViewModel. Android crea los ViewModels por su cuenta
+     * (para que sobrevivan al girar la pantalla), así que hay que decirle cómo
+     * construirlo y qué caso de uso pasarle.
+     */
+    fun getMyProductsViewModelFactory(context: Context) = viewModelFactory {
+        initializer {
+            MyProductsViewModel(getMyProductsInputPort(context))
+        }
+    }
 
     /**
      * Fábrica para AuthViewModel manteniendo compatibilidad.
