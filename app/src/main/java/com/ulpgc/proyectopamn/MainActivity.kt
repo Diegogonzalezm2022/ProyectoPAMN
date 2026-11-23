@@ -13,6 +13,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
@@ -20,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,10 +33,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthScreen
+import com.ulpgc.proyectopamn.adapters.primary.ui.editor.ProductEditorScreen
+import com.ulpgc.proyectopamn.adapters.primary.ui.myproducts.MyProductsScreen
 import com.ulpgc.proyectopamn.adapters.primary.ui.user.UserProfileScreen
 import com.ulpgc.proyectopamn.config.AppDependencyContainer
+import com.ulpgc.proyectopamn.domain.model.Product
 import com.ulpgc.proyectopamn.domain.model.UserProfile
 import com.ulpgc.proyectopamn.ui.theme.ProyectoPAMNTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,6 +101,10 @@ fun ProyectoPAMNApp(
     val context = LocalContext.current
     val authInputPort = remember { AppDependencyContainer.getAuthInputPort(context) }
     var currentDestination by remember { mutableStateOf(AppDestinations.HOME) }
+    // Si no es null, en la pestaña "Mis productos" se ve el editor en vez de la lista.
+    var editorRequest by remember { mutableStateOf<EditorRequest?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -107,12 +118,18 @@ fun ProyectoPAMNApp(
                     },
                     label = { Text(stringResource(it.label)) },
                     selected = it == currentDestination,
-                    onClick = { currentDestination = it }
+                    onClick = {
+                        currentDestination = it
+                        editorRequest = null
+                    }
                 )
             }
         }
     ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+        ) { innerPadding ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -121,7 +138,27 @@ fun ProyectoPAMNApp(
                 when (currentDestination) {
                     AppDestinations.HOME -> HomeScreen(username = currentUser.username)
                     AppDestinations.FAVORITES -> FavoritesScreen()
-                    AppDestinations.MY_PRODUCTS -> MyProductsScreen()
+                    AppDestinations.MY_PRODUCTS -> {
+                        val request = editorRequest
+                        if (request == null) {
+                            MyProductsScreen(
+                                onAddClick = { editorRequest = EditorRequest(product = null) },
+                                onProductClick = { product -> editorRequest = EditorRequest(product) },
+                            )
+                        } else {
+                            ProductEditorScreen(
+                                product = request.product,
+                                viewModelKey = request.key,
+                                onClose = { editorRequest = null },
+                                onSaved = { messageRes ->
+                                    editorRequest = null
+                                    // Cierre del diálogo: confirmamos que se ha guardado.
+                                    val message = context.getString(messageRes)
+                                    scope.launch { snackbarHostState.showSnackbar(message) }
+                                },
+                            )
+                        }
+                    }
                     AppDestinations.PROFILE -> UserProfileScreen(
                         userProfile = currentUser,
                         authInputPort = authInputPort,
@@ -135,18 +172,14 @@ fun ProyectoPAMNApp(
     }
 }
 
-@Composable
-fun MyProductsScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "Mis Productos",
-            style = MaterialTheme.typography.headlineSmall
-        )
-    }
-}
+/**
+ * Petición de abrir el editor: con un producto (editar) o sin él (crear).
+ * La `key` es distinta cada vez para que el editor estrene ViewModel en cada apertura.
+ */
+private data class EditorRequest(
+    val product: Product?,
+    val key: String = "editor_${System.nanoTime()}",
+)
 
 enum class AppDestinations(
     @StringRes val label: Int,
