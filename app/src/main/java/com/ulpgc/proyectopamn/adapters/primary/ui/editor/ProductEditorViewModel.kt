@@ -29,6 +29,7 @@ class ProductEditorViewModel(
         title = productToEdit?.title.orEmpty(),
         description = productToEdit?.description.orEmpty(),
         priceText = productToEdit?.let { PriceInput.format(it.priceInCents) }.orEmpty(),
+        images = productToEdit?.images ?: emptyList(),
     )
 
     // Hasta que no tocas un campo no te grito que está mal (sería agobiante al abrir).
@@ -52,6 +53,10 @@ class ProductEditorViewModel(
         update(uiState.copy(priceText = value))
     }
 
+    fun onImagesChange(newImages: List<String>) {
+        update(uiState.copy(images = newImages))
+    }
+
     fun onSave() {
         val state = uiState
         if (!state.canSave || state.isSaving) return
@@ -60,9 +65,9 @@ class ProductEditorViewModel(
 
         viewModelScope.launch {
             val result = if (productToEdit == null) {
-                createProduct.execute(state.title, state.description, priceInCents)
+                createProduct.execute(state.title, state.description, priceInCents, state.images)
             } else {
-                updateProduct.execute(productToEdit.id, state.title, state.description, priceInCents)
+                updateProduct.execute(productToEdit.id, state.title, state.description, priceInCents, state.images)
             }
             uiState = result.fold(
                 onSuccess = {
@@ -93,7 +98,8 @@ class ProductEditorViewModel(
             canSave = titleOk && priceOk,
             hasChanges = title != initial.title ||
                 description != initial.description ||
-                priceText != initial.priceText,
+                priceText != initial.priceText ||
+                images != initial.images,
         )
     }
 

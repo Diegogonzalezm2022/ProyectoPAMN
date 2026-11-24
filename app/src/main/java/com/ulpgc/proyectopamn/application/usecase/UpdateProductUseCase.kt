@@ -17,6 +17,7 @@ class UpdateProductUseCase(
         title: String,
         description: String,
         priceInCents: Long,
+        images: List<String>
     ): Result<Product> {
         val cleanTitle = title.trim()
         ProductValidator.validate(cleanTitle, priceInCents)?.let { return Result.failure(it) }
@@ -35,6 +36,7 @@ class UpdateProductUseCase(
             title = cleanTitle,
             description = description.trim(),
             priceInCents = priceInCents,
+            images = images,
         )
         return productOutputPort.save(updated)
     }
