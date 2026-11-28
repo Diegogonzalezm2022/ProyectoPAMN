@@ -24,6 +24,12 @@ class InMemoryProductRepository : ProductOutputPort {
     override suspend fun findBySeller(sellerId: String): List<Product> =
         products.values.filter { it.sellerId == sellerId }
 
+    override suspend fun findAvailable(limit: Int): List<Product> =
+        products.values
+            .filter { it.status == ProductStatus.AVAILABLE }
+            .sortedByDescending { it.createdAt }
+            .take(limit)
+
     override suspend fun deleteAvailableBySeller(sellerId: String): Result<Unit> {
         products.values.removeIf { it.sellerId == sellerId && it.status == ProductStatus.AVAILABLE }
         return Result.success(Unit)

@@ -16,6 +16,9 @@ interface ProductOutputPort {
 
     suspend fun findBySeller(sellerId: String): List<Product>
 
+    /** Productos **en venta** de todos los vendedores, de más nuevo a más viejo (como mucho [limit]). */
+    suspend fun findAvailable(limit: Int): List<Product>
+
     /**
      * Borra los productos **en venta** de un vendedor. Los vendidos se conservan.
      * Se usa al borrar una cuenta.
