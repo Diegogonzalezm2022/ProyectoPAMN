@@ -45,7 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ulpgc.proyectopamn.R
-import com.ulpgc.proyectopamn.adapters.primary.ui.auth.rememberImageBitmapFromUri
+import com.ulpgc.proyectopamn.adapters.primary.ui.utils.rememberImageBitmapFromUri
 import com.ulpgc.proyectopamn.config.AppDependencyContainer
 import com.ulpgc.proyectopamn.domain.model.Product
 import com.ulpgc.proyectopamn.domain.model.ProductStatus

@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -76,7 +77,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ulpgc.proyectopamn.R
-import com.ulpgc.proyectopamn.adapters.primary.ui.auth.rememberImageBitmapFromUri
+import com.ulpgc.proyectopamn.adapters.primary.ui.utils.rememberImageBitmapFromUri
 import com.ulpgc.proyectopamn.config.AppDependencyContainer
 import com.ulpgc.proyectopamn.domain.model.Product
 import com.ulpgc.proyectopamn.ui.theme.ProyectoPAMNTheme
@@ -276,7 +277,7 @@ fun ProductEditorContent(
                 },
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp)
             ) {
-                Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                 Text("Cámara")
             }
         }

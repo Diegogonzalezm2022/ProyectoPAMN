@@ -59,6 +59,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.ulpgc.proyectopamn.adapters.primary.ui.utils.rememberImageBitmapFromUri
 import com.ulpgc.proyectopamn.domain.model.AuthResult
 import com.ulpgc.proyectopamn.domain.model.UserProfile
 import com.ulpgc.proyectopamn.domain.ports.input.AuthInputPort
@@ -314,29 +315,6 @@ fun AuthScreen(
                     text = if (isRegisterMode) "¿Ya tienes cuenta? Inicia Sesión" else "¿No tienes cuenta? Regístrate aquí"
                 )
             }
-        }
-    }
-}
-
-/**
- * Carga de forma segura una imagen Bitmap a partir de una URI de la galería.
- */
-@Composable
-fun rememberImageBitmapFromUri(context: Context, uriString: String): ImageBitmap? {
-    return remember(uriString) {
-        if (uriString.isBlank()) return@remember null
-        try {
-            val uri = Uri.parse(uriString)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val source = ImageDecoder.createSource(context.contentResolver, uri)
-                ImageDecoder.decodeBitmap(source).asImageBitmap()
-            } else {
-                context.contentResolver.openInputStream(uri)?.use { stream ->
-                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
-                }
-            }
-        } catch (_: Exception) {
-            null
         }
     }
 }
