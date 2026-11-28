@@ -31,9 +31,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.tooling.preview.Preview
 import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthScreen
+import com.ulpgc.proyectopamn.adapters.primary.ui.chats.ChatsScreen
 import com.ulpgc.proyectopamn.adapters.primary.ui.editor.ProductEditorScreen
+import com.ulpgc.proyectopamn.adapters.primary.ui.home.HomeScreen
 import com.ulpgc.proyectopamn.adapters.primary.ui.myproducts.MyProductsScreen
 import com.ulpgc.proyectopamn.adapters.primary.ui.user.UserProfileScreen
 import com.ulpgc.proyectopamn.config.AppDependencyContainer
@@ -138,6 +139,7 @@ fun ProyectoPAMNApp(
                 when (currentDestination) {
                     AppDestinations.HOME -> HomeScreen(username = currentUser.username)
                     AppDestinations.FAVORITES -> FavoritesScreen()
+                    AppDestinations.CHATS -> ChatsScreen()
                     AppDestinations.MY_PRODUCTS -> {
                         val request = editorRequest
                         if (request == null) {
@@ -187,21 +189,9 @@ enum class AppDestinations(
 ) {
     HOME(R.string.nav_home, R.drawable.ic_home),
     FAVORITES(R.string.nav_favorites, R.drawable.ic_favorite),
+    CHATS(R.string.nav_chats, R.drawable.ic_chat),
     MY_PRODUCTS(R.string.nav_my_products, R.drawable.ic_sell),
     PROFILE(R.string.nav_profile, R.drawable.ic_account_box),
-}
-
-@Composable
-fun HomeScreen(username: String) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "¡Bienvenido, $username!",
-            style = MaterialTheme.typography.headlineSmall
-        )
-    }
 }
 
 @Composable
@@ -214,13 +204,5 @@ fun FavoritesScreen() {
             text = "Pestaña de Favoritos",
             style = MaterialTheme.typography.headlineSmall
         )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun MainPreview() {
-    ProyectoPAMNTheme {
-        HomeScreen(username = "Usuario")
     }
 }

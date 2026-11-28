@@ -5,6 +5,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ulpgc.proyectopamn.adapters.primary.ui.auth.AuthViewModel
 import com.ulpgc.proyectopamn.adapters.primary.ui.editor.ProductEditorViewModel
+import com.ulpgc.proyectopamn.adapters.primary.ui.home.HomeViewModel
 import com.ulpgc.proyectopamn.adapters.primary.ui.myproducts.MyProductsViewModel
 import com.ulpgc.proyectopamn.adapters.secondary.network.firebase.FirebaseAuthAdapter
 import com.ulpgc.proyectopamn.adapters.secondary.network.firebase.FirestoreProductAdapter
@@ -12,6 +13,7 @@ import com.ulpgc.proyectopamn.adapters.secondary.persistence.mock.InMemoryAuthGa
 import com.ulpgc.proyectopamn.adapters.secondary.persistence.mock.InMemoryProductRepository
 import com.ulpgc.proyectopamn.application.usecase.AuthUseCase
 import com.ulpgc.proyectopamn.application.usecase.CreateProductUseCase
+import com.ulpgc.proyectopamn.application.usecase.GetHomeProductsUseCase
 import com.ulpgc.proyectopamn.application.usecase.GetMyProductsUseCase
 import com.ulpgc.proyectopamn.application.usecase.UpdateProductUseCase
 import com.ulpgc.proyectopamn.application.usecase.LoginUseCase
@@ -19,6 +21,7 @@ import com.ulpgc.proyectopamn.application.usecase.RegisterUseCase
 import com.ulpgc.proyectopamn.domain.model.Product
 import com.ulpgc.proyectopamn.domain.ports.input.AuthInputPort
 import com.ulpgc.proyectopamn.domain.ports.input.CreateProductInputPort
+import com.ulpgc.proyectopamn.domain.ports.input.GetHomeProductsInputPort
 import com.ulpgc.proyectopamn.domain.ports.input.GetMyProductsInputPort
 import com.ulpgc.proyectopamn.domain.ports.input.UpdateProductInputPort
 import com.ulpgc.proyectopamn.domain.ports.output.AuthOutputPort
@@ -82,6 +85,17 @@ object AppDependencyContainer {
         }.also {
             productOutputPortInstance = it
         }
+
+    /** Caso de uso "productos de otros para el Home". */
+    fun getHomeProductsInputPort(context: Context, useMock: Boolean = false): GetHomeProductsInputPort =
+        GetHomeProductsUseCase(getAuthOutputPort(context, useMock), getProductOutputPort(useMock))
+
+    /** Fábrica para HomeViewModel. */
+    fun getHomeViewModelFactory(context: Context) = viewModelFactory {
+        initializer {
+            HomeViewModel(getHomeProductsInputPort(context))
+        }
+    }
 
     /** Caso de uso "publicar un producto". */
     fun getCreateProductInputPort(context: Context, useMock: Boolean = false): CreateProductInputPort =

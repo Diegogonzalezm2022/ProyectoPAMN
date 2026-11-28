@@ -4,6 +4,7 @@
     <!-- Footer -->
     <string name="nav_home">Home</string>
     <string name="nav_favorites">Favorites</string>
+    <string name="nav_chats">Chats</string>
     <string name="nav_my_products">My products</string>
     <string name="nav_profile">Profile</string>
 
@@ -29,14 +30,37 @@
     <string name="auth_error_invalid_credentials">Incorrect email or password.</string>
     <string name="auth_error_unknown">Something went wrong. Please try again.</string>
 
+    <!-- Comunes a varias pantallas -->
+    <string name="price_free">Gratis</string>
+    <string name="retry">Reintentar</string>
+
+    <!-- Home -->
+    <string name="home_greeting">Hola, %1$s</string>
+    <string name="home_search_label">Buscar productos</string>
+    <string name="home_search_clear">Borrar búsqueda</string>
+    <string name="home_section_newest">Novedades</string>
+    <string name="home_section_cheap">Por menos de 10 €</string>
+    <string name="home_loading">Cargando productos</string>
+    <string name="home_empty_title">Todavía no hay productos de otros usuarios</string>
+    <string name="home_empty_message">Cuando alguien publique algo, aparecerá aquí.</string>
+    <string name="home_search_empty">No hay productos que coincidan con «%1$s». Prueba con otra palabra.</string>
+    <plurals name="home_search_count">
+        <item quantity="one">%d resultado</item>
+        <item quantity="other">%d resultados</item>
+    </plurals>
+    <string name="home_error_generic">No se han podido cargar los productos. Comprueba tu conexión y vuelve a intentarlo.</string>
+
     <!-- Mis productos -->
+    <plurals name="my_products_photo_count">
+        <item quantity="one">%d foto</item>
+        <item quantity="other">%d fotos</item>
+    </plurals>
     <string name="my_products_title">Mis productos</string>
     <string name="my_products_loading">Cargando tus productos</string>
     <string name="my_products_empty_title">Aún no tienes productos</string>
     <string name="my_products_empty_message">Pulsa el botón + para publicar el primero.</string>
     <string name="my_products_add">Añadir producto</string>
     <string name="my_products_retry">Reintentar</string>
-    <string name="my_products_free">Gratis</string>
     <string name="my_products_status_available">En venta</string>
     <string name="my_products_status_sold">Vendido</string>
     <string name="my_products_error_not_logged_in">Tu sesión ha caducado. Vuelve a iniciar sesión.</string>
@@ -67,4 +91,18 @@
     <string name="editor_discard_message">Si sales ahora, se perderá lo que has escrito.</string>
     <string name="editor_discard_confirm">Descartar</string>
     <string name="editor_discard_dismiss">Seguir editando</string>
+    <string name="editor_images_title">Fotos del producto</string>
+    <string name="editor_images_hint">La primera foto es la portada. Mantén pulsada una foto y arrástrala para cambiar el orden.</string>
+    <string name="editor_images_gallery">Galería</string>
+    <string name="editor_images_camera">Cámara</string>
+    <string name="editor_image_main">Portada</string>
+    <string name="editor_image_number">Foto %1$d</string>
+    <string name="editor_image_main_description">Foto %1$d, portada. Mantén pulsado y arrastra para cambiar el orden.</string>
+    <string name="editor_image_description">Foto %1$d. Mantén pulsado y arrastra para cambiar el orden.</string>
+    <string name="editor_image_delete">Eliminar foto %1$d</string>
+
+    <!-- Chats -->
+    <string name="chats_title">Chats</string>
+    <string name="chats_empty_title">Aún no tienes conversaciones</string>
+    <string name="chats_empty_message">Cuando escribas a un vendedor o alguien se interese por tus productos, las conversaciones aparecerán aquí.</string>
 </resources>
