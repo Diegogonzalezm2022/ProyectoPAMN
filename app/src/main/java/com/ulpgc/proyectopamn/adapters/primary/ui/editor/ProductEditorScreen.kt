@@ -8,6 +8,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,18 +25,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -52,6 +52,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,10 +61,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
@@ -81,7 +86,11 @@ import com.ulpgc.proyectopamn.adapters.primary.ui.utils.rememberImageBitmapFromU
 import com.ulpgc.proyectopamn.config.AppDependencyContainer
 import com.ulpgc.proyectopamn.domain.model.Product
 import com.ulpgc.proyectopamn.ui.theme.ProyectoPAMNTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import java.io.File
+import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Pantalla del editor con su ViewModel.
@@ -136,6 +145,10 @@ fun ProductEditorContent(
     val context = LocalContext.current
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Estado para Drag and Drop simétrico y continuo
+    var draggingIndex by remember { mutableStateOf<Int?>(null) }
+    var draggingOffsetX by remember { mutableFloatStateOf(0f) }
 
     // Selector de Múltiples Imágenes desde Galería
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -242,15 +255,15 @@ fun ProductEditorContent(
             minLines = 4,
         )
 
-        // --- Sección de Gestión de Imágenes Ordenadas ---
+        // --- Sección de Gestión de Imágenes Ordenadas (Drag & Drop Simétrico) ---
         Text(
-            text = "Imágenes del producto (Lista ordenada)",
+            text = "Imágenes del producto (Drag & Drop)",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
         )
 
         Text(
-            text = "La primera imagen (#1) será la Imagen Principal (Portada) en el catálogo.",
+            text = "Mantén pulsada una imagen y arrástrala a izquierda o derecha. La primera (#1) será la Imagen Principal.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -283,21 +296,144 @@ fun ProductEditorContent(
         }
 
         if (state.images.isNotEmpty()) {
+            val lazyListState = rememberLazyListState()
+            val density = LocalDensity.current
+            val cardStepDp = 152.dp
+            val cardStepPx = with(density) { cardStepDp.toPx() }
+            val edgeThresholdPx = with(density) { 130.dp.toPx() }
+
+            fun commitReorder(startIdx: Int?, offsetX: Float) {
+                if (startIdx != null) {
+                    val shift = (offsetX / cardStepPx).roundToInt()
+                    val finalTargetIdx = (startIdx + shift).coerceIn(0, state.images.size - 1)
+                    if (finalTargetIdx != startIdx) {
+                        val mutable = state.images.toMutableList()
+                        val item = mutable.removeAt(startIdx)
+                        mutable.add(finalTargetIdx, item)
+                        onImagesChange(mutable)
+                    }
+                }
+            }
+
+            // Auto-scroll continuo al acercarse a los bordes
+            LaunchedEffect(draggingIndex, draggingOffsetX) {
+                val startIdx = draggingIndex ?: return@LaunchedEffect
+                while (isActive && draggingIndex != null) {
+                    val layoutInfo = lazyListState.layoutInfo
+                    val viewportWidth = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+                    if (viewportWidth <= 0) break
+
+                    val itemPositionInRow = (startIdx * cardStepPx) - (lazyListState.firstVisibleItemIndex * cardStepPx + lazyListState.firstVisibleItemScrollOffset)
+                    val currentCardX = itemPositionInRow + draggingOffsetX
+
+                    val scrollDelta = when {
+                        currentCardX > viewportWidth - edgeThresholdPx && lazyListState.canScrollForward -> 24f
+                        currentCardX < edgeThresholdPx && lazyListState.canScrollBackward -> -24f
+                        else -> 0f
+                    }
+
+                    if (scrollDelta != 0f) {
+                        val consumed = lazyListState.scrollBy(scrollDelta)
+                        if (consumed != 0f) {
+                            val minOffset = -startIdx * cardStepPx
+                            val maxOffset = (state.images.size - 1 - startIdx) * cardStepPx
+                            draggingOffsetX = (draggingOffsetX + consumed).coerceIn(minOffset, maxOffset)
+                            delay(12.milliseconds)
+                        } else {
+                            break
+                        }
+                    } else {
+                        break
+                    }
+                }
+            }
+
             LazyRow(
+                state = lazyListState,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(state.images) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { offset ->
+                                val firstVisibleIndex = lazyListState.firstVisibleItemIndex
+                                val firstOffset = lazyListState.firstVisibleItemScrollOffset
+                                val hitIndex = (firstVisibleIndex + (offset.x + firstOffset) / cardStepPx).toInt()
+                                    .coerceIn(0, state.images.size - 1)
+                                draggingIndex = hitIndex
+                                draggingOffsetX = 0f
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                val startIdx = draggingIndex ?: return@detectDragGesturesAfterLongPress
+                                val minOffset = -startIdx * cardStepPx
+                                val maxOffset = (state.images.size - 1 - startIdx) * cardStepPx
+                                draggingOffsetX = (draggingOffsetX + dragAmount.x).coerceIn(minOffset, maxOffset)
+                            },
+                            onDragEnd = {
+                                commitReorder(draggingIndex, draggingOffsetX)
+                                draggingIndex = null
+                                draggingOffsetX = 0f
+                            },
+                            onDragCancel = {
+                                commitReorder(draggingIndex, draggingOffsetX)
+                                draggingIndex = null
+                                draggingOffsetX = 0f
+                            }
+                        )
+                    }
             ) {
                 itemsIndexed(state.images) { index, imgUri ->
-                    val isMain = (index == 0)
+                    val isDraggingThis = (draggingIndex == index)
+
+                    val targetIndex = draggingIndex?.let { startIdx ->
+                        val shift = (draggingOffsetX / cardStepPx).roundToInt()
+                        (startIdx + shift).coerceIn(0, state.images.size - 1)
+                    } ?: index
+
+                    val shiftOffsetPx = when {
+                        isDraggingThis -> draggingOffsetX
+                        draggingIndex != null -> {
+                            val startIdx = draggingIndex!!
+                            if (startIdx < targetIndex && index in (startIdx + 1)..targetIndex) {
+                                -cardStepPx
+                            } else if (startIdx > targetIndex && index in targetIndex until startIdx) {
+                                cardStepPx
+                            } else 0f
+                        }
+                        else -> 0f
+                    }
+
+                    val isMain = if (draggingIndex != null) {
+                        if (isDraggingThis) targetIndex == 0
+                        else {
+                            val startIdx = draggingIndex!!
+                            if (startIdx == 0) index == 1
+                            else if (targetIndex == 0 && index == 0) false
+                            else index == 0
+                        }
+                    } else index == 0
+
                     val bitmap = rememberImageBitmapFromUri(context, imgUri)
 
                     Card(
                         modifier = Modifier
                             .width(140.dp)
+                            .graphicsLayer {
+                                translationX = shiftOffsetPx
+                                if (isDraggingThis) {
+                                    scaleX = 1.08f
+                                    scaleY = 1.08f
+                                    shadowElevation = 12.dp.toPx()
+                                }
+                            }
                             .then(
                                 if (isMain) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)) else Modifier
-                            ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                            )
+                            .semantics {
+                                contentDescription = "Foto ${index + 1}. ${if (isMain) "Imagen Principal." else ""} Mantén pulsado y arrastra para reordenar."
+                            },
+                        elevation = CardDefaults.cardElevation(defaultElevation = if (isDraggingThis) 8.dp else 3.dp)
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -338,52 +474,19 @@ fun ProductEditorContent(
 
                             Spacer(modifier = Modifier.height(6.dp))
 
-                            Row(
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.fillMaxWidth()
+                            IconButton(
+                                onClick = {
+                                    val mutable = state.images.toMutableList()
+                                    mutable.removeAt(index)
+                                    onImagesChange(mutable)
+                                },
+                                modifier = Modifier.size(36.dp)
                             ) {
-                                IconButton(
-                                    onClick = {
-                                        if (index > 0) {
-                                            val mutable = state.images.toMutableList()
-                                            val temp = mutable[index]
-                                            mutable[index] = mutable[index - 1]
-                                            mutable[index - 1] = temp
-                                            onImagesChange(mutable)
-                                        }
-                                    },
-                                    enabled = index > 0,
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Mover a la izquierda")
-                                }
-
-                                IconButton(
-                                    onClick = {
-                                        val mutable = state.images.toMutableList()
-                                        mutable.removeAt(index)
-                                        onImagesChange(mutable)
-                                    },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
-                                }
-
-                                IconButton(
-                                    onClick = {
-                                        if (index < state.images.size - 1) {
-                                            val mutable = state.images.toMutableList()
-                                            val temp = mutable[index]
-                                            mutable[index] = mutable[index + 1]
-                                            mutable[index + 1] = temp
-                                            onImagesChange(mutable)
-                                        }
-                                    },
-                                    enabled = index < state.images.size - 1,
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Mover a la derecha")
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Eliminar foto ${index + 1}",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
                             }
                         }
                     }
