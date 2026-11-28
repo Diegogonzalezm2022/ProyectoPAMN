@@ -32,7 +32,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PhotoCamera
@@ -257,13 +257,13 @@ fun ProductEditorContent(
 
         // --- Sección de Gestión de Imágenes Ordenadas (Drag & Drop Simétrico) ---
         Text(
-            text = "Imágenes del producto (Drag & Drop)",
+            text = stringResource(R.string.editor_images_title),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
         )
 
         Text(
-            text = "Mantén pulsada una imagen y arrástrala a izquierda o derecha. La primera (#1) será la Imagen Principal.",
+            text = stringResource(R.string.editor_images_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -277,7 +277,7 @@ fun ProductEditorContent(
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp)
             ) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                Text("Galería")
+                Text(stringResource(R.string.editor_images_gallery))
             }
 
             OutlinedButton(
@@ -291,7 +291,7 @@ fun ProductEditorContent(
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp)
             ) {
                 Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                Text("Cámara")
+                Text(stringResource(R.string.editor_images_camera))
             }
         }
 
@@ -415,6 +415,11 @@ fun ProductEditorContent(
                     } else index == 0
 
                     val bitmap = rememberImageBitmapFromUri(context, imgUri)
+                    val photoNumber = index + 1
+                    val cardDescription = stringResource(
+                        if (isMain) R.string.editor_image_main_description else R.string.editor_image_description,
+                        photoNumber,
+                    )
 
                     Card(
                         modifier = Modifier
@@ -431,7 +436,7 @@ fun ProductEditorContent(
                                 if (isMain) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)) else Modifier
                             )
                             .semantics {
-                                contentDescription = "Foto ${index + 1}. ${if (isMain) "Imagen Principal." else ""} Mantén pulsado y arrastra para reordenar."
+                                contentDescription = cardDescription
                             },
                         elevation = CardDefaults.cardElevation(defaultElevation = if (isDraggingThis) 8.dp else 3.dp)
                     ) {
@@ -445,7 +450,8 @@ fun ProductEditorContent(
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
                             ) {
                                 Text(
-                                    text = if (isMain) "⭐ Principal" else "#${index + 1}",
+                                    text = if (isMain) stringResource(R.string.editor_image_main)
+                                    else stringResource(R.string.editor_image_number, photoNumber),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = if (isMain) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
                                     modifier = Modifier.padding(2.dp),
@@ -457,18 +463,23 @@ fun ProductEditorContent(
                                 modifier = Modifier
                                     .size(100.dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.LightGray),
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center
                             ) {
+                                // La tarjeta ya describe la foto: la imagen es decorativa para TalkBack.
                                 if (bitmap != null) {
                                     Image(
                                         bitmap = bitmap,
-                                        contentDescription = "Foto ${index + 1}",
+                                        contentDescription = null,
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
-                                    Icon(imageVector = Icons.Default.AccountCircle, contentDescription = null, tint = Color.Gray)
+                                    Icon(
+                                        imageVector = Icons.Outlined.Image,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
 
@@ -480,11 +491,12 @@ fun ProductEditorContent(
                                     mutable.removeAt(index)
                                     onImagesChange(mutable)
                                 },
-                                modifier = Modifier.size(36.dp)
+                                // 48 dp: tamaño mínimo de un objetivo táctil (WCAG).
+                                modifier = Modifier.size(48.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = "Eliminar foto ${index + 1}",
+                                    contentDescription = stringResource(R.string.editor_image_delete, photoNumber),
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             }

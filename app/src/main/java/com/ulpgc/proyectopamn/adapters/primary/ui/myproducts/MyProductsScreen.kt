@@ -1,7 +1,5 @@
 package com.ulpgc.proyectopamn.adapters.primary.ui.myproducts
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -32,8 +29,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
@@ -45,13 +42,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ulpgc.proyectopamn.R
-import com.ulpgc.proyectopamn.adapters.primary.ui.utils.rememberImageBitmapFromUri
+import com.ulpgc.proyectopamn.adapters.primary.ui.components.ProductImage
+import com.ulpgc.proyectopamn.adapters.primary.ui.components.formatPrice
 import com.ulpgc.proyectopamn.config.AppDependencyContainer
 import com.ulpgc.proyectopamn.domain.model.Product
 import com.ulpgc.proyectopamn.domain.model.ProductStatus
 import com.ulpgc.proyectopamn.ui.theme.ProyectoPAMNTheme
-import java.text.NumberFormat
-import java.util.Locale
 
 /**
  * Pantalla "Mis productos" con su ViewModel.
@@ -190,9 +186,6 @@ private fun ProductList(products: List<Product>, onProductClick: (Product) -> Un
 
 @Composable
 private fun MyProductItem(product: Product, onClick: () -> Unit) {
-    val context = LocalContext.current
-    val mainBitmap = rememberImageBitmapFromUri(context, product.mainImage ?: "")
-
     // Al ser pulsable, la tarjeta agrupa su contenido: TalkBack la lee de una vez
     // ("Bici, 50 €, En venta") y avisa de que se puede pulsar.
     Card(
@@ -205,29 +198,12 @@ private fun MyProductItem(product: Product, onClick: () -> Unit) {
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
+            ProductImage(
+                imageUrl = product.mainImage,
                 modifier = Modifier
                     .size(72.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                if (mainBitmap != null) {
-                    Image(
-                        bitmap = mainBitmap,
-                        contentDescription = "Miniatura principal de ${product.title}",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.AccountCircle,
-                        contentDescription = "Sin imagen principal",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-            }
+                    .clip(RoundedCornerShape(8.dp)),
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -254,7 +230,11 @@ private fun MyProductItem(product: Product, onClick: () -> Unit) {
                 if (product.images.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "🖼️ ${product.images.size} foto(s)",
+                        text = pluralStringResource(
+                            R.plurals.my_products_photo_count,
+                            product.images.size,
+                            product.images.size,
+                        ),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.secondary
                     )
@@ -262,14 +242,6 @@ private fun MyProductItem(product: Product, onClick: () -> Unit) {
             }
         }
     }
-}
-
-/** 1250 céntimos → "12,50 €"; 0 → "Gratis". */
-@Composable
-private fun formatPrice(priceInCents: Long): String {
-    if (priceInCents == 0L) return stringResource(R.string.my_products_free)
-    val format = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("es-ES"))
-    return format.format(priceInCents / 100.0)
 }
 
 @Preview(showBackground = true)
