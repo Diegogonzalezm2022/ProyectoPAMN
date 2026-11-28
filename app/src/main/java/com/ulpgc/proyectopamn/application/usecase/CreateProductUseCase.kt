@@ -13,7 +13,12 @@ class CreateProductUseCase(
     private val productOutputPort: ProductOutputPort,
 ) : CreateProductInputPort {
 
-    override suspend fun execute(title: String, description: String, priceInCents: Long): Result<Product> {
+    override suspend fun execute(
+        title: String,
+        description: String,
+        priceInCents: Long,
+        images: List<String>
+    ): Result<Product> {
         val cleanTitle = title.trim()
         ProductValidator.validate(cleanTitle, priceInCents)?.let { return Result.failure(it) }
 
@@ -26,6 +31,7 @@ class CreateProductUseCase(
             description = description.trim(),
             priceInCents = priceInCents,
             sellerId = seller.id,
+            images = images,
             status = ProductStatus.AVAILABLE,
         )
         return productOutputPort.save(product)

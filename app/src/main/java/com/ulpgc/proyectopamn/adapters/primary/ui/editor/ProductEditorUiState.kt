@@ -14,6 +14,8 @@ data class ProductEditorUiState(
     val description: String = "",
     /** El precio tal cual lo escribe el usuario ("12,50"); se pasa a céntimos al guardar. */
     val priceText: String = "",
+    /** Lista ordenada de imágenes del producto (la primera es la principal). */
+    val images: List<String> = emptyList(),
     /** Error de cada campo. Solo se rellena cuando el usuario ya ha tocado ese campo. */
     @StringRes val titleErrorRes: Int? = null,
     @StringRes val priceErrorRes: Int? = null,

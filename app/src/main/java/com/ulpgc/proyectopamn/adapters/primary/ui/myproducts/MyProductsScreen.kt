@@ -1,5 +1,7 @@
 package com.ulpgc.proyectopamn.adapters.primary.ui.myproducts
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,9 +12,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -25,6 +31,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -37,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ulpgc.proyectopamn.R
+import com.ulpgc.proyectopamn.adapters.primary.ui.utils.rememberImageBitmapFromUri
 import com.ulpgc.proyectopamn.config.AppDependencyContainer
 import com.ulpgc.proyectopamn.domain.model.Product
 import com.ulpgc.proyectopamn.domain.model.ProductStatus
@@ -181,31 +190,75 @@ private fun ProductList(products: List<Product>, onProductClick: (Product) -> Un
 
 @Composable
 private fun MyProductItem(product: Product, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val mainBitmap = rememberImageBitmapFromUri(context, product.mainImage ?: "")
+
     // Al ser pulsable, la tarjeta agrupa su contenido: TalkBack la lee de una vez
     // ("Bici, 50 €, En venta") y avisa de que se puede pulsar.
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = product.title, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = formatPrice(product.priceInCents),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                // El estado va en texto, no solo con un color (WCAG: no depender del color).
-                Text(
-                    text = stringResource(
-                        if (product.status == ProductStatus.SOLD) R.string.my_products_status_sold
-                        else R.string.my_products_status_available
-                    ),
-                    style = MaterialTheme.typography.labelLarge,
-                )
+                if (mainBitmap != null) {
+                    Image(
+                        bitmap = mainBitmap,
+                        contentDescription = "Miniatura principal de ${product.title}",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "Sin imagen principal",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = product.title, style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = formatPrice(product.priceInCents),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    // El estado va en texto, no solo con un color (WCAG: no depender del color).
+                    Text(
+                        text = stringResource(
+                            if (product.status == ProductStatus.SOLD) R.string.my_products_status_sold
+                            else R.string.my_products_status_available
+                        ),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+                if (product.images.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "🖼️ ${product.images.size} foto(s)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
             }
         }
     }

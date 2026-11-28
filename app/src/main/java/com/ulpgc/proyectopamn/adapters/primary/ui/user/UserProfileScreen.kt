@@ -57,7 +57,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.ulpgc.proyectopamn.adapters.primary.ui.auth.rememberImageBitmapFromUri
+import com.ulpgc.proyectopamn.adapters.primary.ui.utils.rememberImageBitmapFromUri
 import com.ulpgc.proyectopamn.domain.model.AuthResult
 import com.ulpgc.proyectopamn.domain.model.UserProfile
 import com.ulpgc.proyectopamn.domain.ports.input.AuthInputPort
@@ -177,7 +177,7 @@ fun UserProfileScreen(
                         contentDescription = null,
                         modifier = Modifier.padding(end = 8.dp)
                     )
-                    Text(if (photoUrl.isBlank()) "Seleccionar foto de galería" else "Cambiar foto de galería")
+                    Text(if (photoUrl.isBlank()) "Seleccionar foto de galería" else "Cambiar foto de perfil")
                 }
             }
 
